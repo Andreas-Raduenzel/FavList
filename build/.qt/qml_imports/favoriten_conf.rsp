@@ -1,0 +1,9 @@
+-rootPath
+/home/raa/Schreibtisch/favoriten_v32
+-cmake-output
+-output-file
+/home/raa/Schreibtisch/favoriten_v32/build/.qt/qml_imports/favoriten_conf.cmake
+-importPath
+/home/raa/Schreibtisch/favoriten_v32/build
+-importPath
+/usr/lib/x86_64-linux-gnu/qt6/qml

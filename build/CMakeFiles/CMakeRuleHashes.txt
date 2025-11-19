@@ -1,0 +1,6 @@
+# Hashes of file build rules.
+4072f8b5310b483834a0aab5c3071533 .qt/qml_imports/favoriten_build.cmake
+2dda0b63dfa9e058518a29921a43c222 CMakeFiles/favoriten_autogen
+2dda0b63dfa9e058518a29921a43c222 CMakeFiles/favoriten_qmlimportscan
+6f8c94a23e07c27762eabf840b9510a1 favoriten_autogen/timestamp
+28696167b2ae1ada88201861d4e8abd6 qrc_resources.cpp
