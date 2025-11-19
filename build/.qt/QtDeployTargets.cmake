@@ -1,2 +1,0 @@
-set(__QT_DEPLOY_TARGET_favoriten_FILE /home/raa/Schreibtisch/favoriten_v32/build/favoriten)
-set(__QT_DEPLOY_TARGET_favoriten_TYPE EXECUTABLE)
