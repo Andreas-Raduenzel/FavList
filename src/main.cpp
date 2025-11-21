@@ -13,7 +13,8 @@
 #include <QAction>
 
 #include "FavoriteBackend.h"
-//#include "AppSettings.h"
+
+#include <QFile>
 
 int main(int argc, char *argv[])
 {
@@ -35,11 +36,12 @@ int main(int argc, char *argv[])
     QCoreApplication::setApplicationName("FavList");
 
     // Desktop-Dateiname für Integration unter Linux
-    QGuiApplication::setDesktopFileName("favorlist");  // ohne Pfad
+    QGuiApplication::setDesktopFileName("favlist");  // ohne Pfad
 
     // App-Icon laden
-    QIcon appIcon(":/resources/appicon.svg");
+    QIcon appIcon(":/resources/icons/appicon.svg");
     app.setWindowIcon(appIcon);
+
 
     // Icon-Theme-Fallbacks
     QStringList fallbackThemes = {"breeze", "hicolor", "Adwaita", "Mint-Y"};
@@ -61,19 +63,25 @@ int main(int argc, char *argv[])
     // QML Engine starten
     QQmlApplicationEngine engine;
 
-    //engine.rootContext()->setContextProperty("appSettings", &appSettings);
-    //engine.load(QStringLiteral("qrc:/qml/main.qml"));
-
     // Backend-Objekt für QML verfügbar machen
     FavoriteBackend backend;
     engine.rootContext()->setContextProperty("backend", &backend);
 
-    // QML-Datei laden (lokaler Pfad)
-    QString qmlPath = QDir::cleanPath(QCoreApplication::applicationDirPath() + "/../qml/main.qml");
+    // QML-Datei laden: erst Dev-Pfad, dann System-Pfad als Fallback
+    QString qmlPath = QDir::cleanPath(
+        QCoreApplication::applicationDirPath() + "/../qml/main.qml"
+    );
+
+    if (!QFile::exists(qmlPath)) {
+        // Fallback für installierte Pakete
+        qmlPath = "/usr/share/favoriten/qml/main.qml";
+    }
+
     engine.load(QUrl::fromLocalFile(qmlPath));
 
     if (engine.rootObjects().isEmpty())
         return -1;
+
 
     // Hauptfenster ermitteln
     QObject *topLevel = engine.rootObjects().first();
