@@ -31,30 +31,4 @@ target_link_libraries(favoriten PRIVATE
     Qt6::QuickControls2
 )
 
-# 🔹 Standard-Installpfade (bin, share, etc.)
-include(GNUInstallDirs)
-
-# 1. Binary nach /usr/bin/favoriten o.ä.
-install(TARGETS favoriten
-        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-
-# 2. QML nach /usr/share/favoriten/qml/...
-install(DIRECTORY qml/
-        DESTINATION ${CMAKE_INSTALL_DATADIR}/favoriten/qml)
-
-# 3. .desktop nach /usr/share/applications
-install(FILES resources/desktop/favlist.desktop
-        DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
-
-# 4. Icon nach /usr/share/icons/hicolor/scalable/apps/favlist.svg
-install(FILES resources/icons/appicon.svg
-        DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps
-        RENAME favlist.svg)
-
-# 5. Einfaches DEB-Paket via CPack (für Tests)
-set(CPACK_GENERATOR "DEB")
-set(CPACK_PACKAGE_NAME "favlist")
-set(CPACK_PACKAGE_VERSION "0.1.0")
-set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Andreas <andreas@example.com>")
-
-include(CPack)
+install(TARGETS favoriten DESTINATION bin)

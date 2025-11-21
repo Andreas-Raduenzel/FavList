@@ -1,7 +1,6 @@
 <RCC>
-      <qresource prefix="/resources">
-        <file alias="icons/main.qm">qml/main.qml</file>
-        <file alias="icons/appicon.svg">resources/icons/appicon.svg</file>
-        <file alias="favlist.desktop">resources/desktop/favlist.desktop</file>
+    <qresource prefix="/">
+        <file>qml/main.qml</file>
+        <file>resources/appicon.svg</file>
     </qresource>
 </RCC>

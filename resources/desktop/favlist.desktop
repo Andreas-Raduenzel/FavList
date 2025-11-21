@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=FavList
-Comment=Favorite launcher
-Exec=favoriten
-Icon=favlist
-Terminal=false
-Categories=Utility;
-StartupNotify=true
