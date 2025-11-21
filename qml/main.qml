@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
+import QtQuick.Window 2.15
 
 ApplicationWindow {
     id: mainWindow
@@ -8,12 +9,11 @@ ApplicationWindow {
     width: 250
     height: 400
     title: "FavList"
-    
 
     // Dark-/Light-Theme-Erkennung
     property bool darkTheme: Qt.styleHints.colorScheme === Qt.Dark
 
-    // Wird vom Tray (oder später) genutzt, um Fenster ein-/auszublenden
+    // Wird vom Tray genutzt, um Fenster ein-/auszublenden
     function toggleVisibility() {
         if (visible) {
             hide();
@@ -24,12 +24,68 @@ ApplicationWindow {
         }
     }
 
-    // Beim Klick auf das X nicht wirklich beenden, sondern nur ins Tray
+    // Wird aus C++ (Tray) aufgerufen
+    function openSettings() {
+        settingsWindow.show();
+        settingsWindow.raise();
+        settingsWindow.requestActivate();
+    }
+
     onClosing: {
         close.accepted = false      // verhindert echtes Schließen
         hide()
     }
 
+    // 🔹 System-Palette vom aktuellen Theme holen
+    SystemPalette {
+        id: sysPalette
+        colorGroup: SystemPalette.Active
+    }
+
+    // 🔹 Eigenes Einstellungsfenster mit Systemfarben
+    Window {
+        id: settingsWindow
+        width: 320
+        height: 180
+        title: "Einstellungen – FavList"
+        modality: Qt.ApplicationModal
+        flags: Qt.Dialog | Qt.WindowCloseButtonHint
+        visible: false
+
+        // Hintergrund an System-Theme koppeln
+        color: sysPalette.window
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 12
+            spacing: 8
+
+            CheckBox {
+                id: autostartCheck
+                text: "Beim Systemstart starten"
+                checked: autostartManager.isAutostartEnabled()
+                onToggled: autostartManager.setAutostartEnabled(checked)
+            }
+
+            Label {
+                text: "(Weitere Optionen folgen …)"
+                opacity: 0.6
+                color: sysPalette.windowText
+            }
+
+            Item {
+                Layout.fillHeight: true
+            }
+
+            Button {
+                text: "Schließen"
+                Layout.alignment: Qt.AlignRight
+                onClicked: settingsWindow.close()
+            }
+        }
+    }
+
+    // 🔹 Hauptinhalt der App (dein ursprüngliches Layout)
     ColumnLayout {
         anchors.fill: parent
         spacing: 10
@@ -49,6 +105,7 @@ ApplicationWindow {
 
         Button {
             text: "Hinzufügen"
+            Layout.fillWidth: true
             onClicked: {
                 if (pathInput.text.length > 0) {
                     backend.addFavorite(pathInput.text)
@@ -82,7 +139,6 @@ ApplicationWindow {
                     anchors.fill: parent
                     spacing: 8
 
-                    // Hoch-Pfeil
                     Label {
                         text: "⬆"
                         font.pixelSize: 14
@@ -98,7 +154,6 @@ ApplicationWindow {
                         }
                     }
 
-                    // Runter-Pfeil
                     Label {
                         text: "⬇"
                         font.pixelSize: 14

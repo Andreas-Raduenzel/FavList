@@ -16,6 +16,7 @@ qt_add_resources(APP_RESOURCES resources.qrc)
 qt_add_executable(favoriten
     src/main.cpp
     src/FavoriteBackend.cpp
+    src/autostartmanager.cpp
 
     ${APP_RESOURCES}
 )
