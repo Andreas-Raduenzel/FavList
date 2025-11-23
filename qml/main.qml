@@ -31,13 +31,13 @@ ApplicationWindow {
         settingsWindow.requestActivate();
     }
 
-    onClosing: {
-        if (trayAvailable) {
-            close.accepted = false
-            hide()
-        } else {
-            close.accepted = true
-        }
+ onClosing: function(close) {
+    if (trayAvailable) {
+        close.accepted = false
+        hide()
+    } else {
+        close.accepted = true
+    }   
     }
 
     // Shortcut für Einstellungen (z.B. Strg+,)
