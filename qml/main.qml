@@ -32,8 +32,18 @@ ApplicationWindow {
     }
 
     onClosing: {
-        close.accepted = false      // verhindert echtes Schließen
-        hide()
+        if (trayAvailable) {
+            close.accepted = false
+            hide()
+        } else {
+            close.accepted = true
+        }
+    }
+
+    // Shortcut für Einstellungen (z.B. Strg+,)
+    Shortcut {
+        sequence: StandardKey.Preferences
+        onActivated: mainWindow.openSettings()
     }
 
     // 🔹 System-Palette vom aktuellen Theme holen
@@ -46,7 +56,7 @@ ApplicationWindow {
     Window {
         id: settingsWindow
         width: 320
-        height: 180
+        height: 200
         title: "Einstellungen – FavList"
         modality: Qt.ApplicationModal
         flags: Qt.Dialog | Qt.WindowCloseButtonHint
@@ -60,12 +70,32 @@ ApplicationWindow {
             anchors.margins: 12
             spacing: 8
 
+            // ✅ Autostart an/aus
             CheckBox {
                 id: autostartCheck
-                text: "Beim Systemstart starten"
+                text: "Beim Systemstart automatisch starten"
                 checked: autostartManager.isAutostartEnabled()
-                onToggled: autostartManager.setAutostartEnabled(checked)
+
+                onToggled: {
+                    autostartManager.setAutostartEnabled(checked)
+
+                    // Optional: „nur Tray“ zurücksetzen, wenn Autostart aus
+                    if (!checked) {
+                        autostartManager.setStartOnlyTray(false)
+                    }
+                }
             }
+
+            // ✅ Nur Tray-Icon (abhängig von Autostart & nur sinnvoll, wenn Tray existiert)
+                CheckBox {
+                    text: "Beim Start nur Tray-Icon anzeigen"
+                    visible: trayAvailable                // <--- NEU: nur anzeigen, wenn es einen Tray gibt
+                    enabled: autostartCheck.checked
+                    checked: autostartManager.startOnlyTray()
+
+                    onToggled: autostartManager.setStartOnlyTray(checked)
+                }
+
 
             Label {
                 text: "(Weitere Optionen folgen …)"
@@ -85,21 +115,35 @@ ApplicationWindow {
         }
     }
 
-    // 🔹 Hauptinhalt der App (dein ursprüngliches Layout)
+    // 🔹 Hauptinhalt der App
     ColumnLayout {
         anchors.fill: parent
         spacing: 10
         anchors.margins: 10
 
-        TextField {
-            id: pathInput
-            placeholderText: "Pfad zur Datei oder zum Ordner eingeben..."
+        // Zeile mit Eingabefeld + Zahnrad
+        RowLayout {
             Layout.fillWidth: true
-            onAccepted: {
-                if (text.length > 0) {
-                    backend.addFavorite(text)
-                    text = ""
+            spacing: 6
+
+            TextField {
+                id: pathInput
+                placeholderText: "Pfad zur Datei oder zum Ordner eingeben..."
+                Layout.fillWidth: true
+                onAccepted: {
+                    if (text.length > 0) {
+                        backend.addFavorite(text)
+                        text = ""
+                    }
                 }
+            }
+
+            ToolButton {
+                text: "⚙"
+                Accessible.name: "Einstellungen"
+                onClicked: mainWindow.openSettings()
+                ToolTip.visible: hovered
+                ToolTip.text: "Einstellungen öffnen"
             }
         }
 

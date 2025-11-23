@@ -12,6 +12,10 @@ public:
     Q_INVOKABLE bool isAutostartEnabled() const;
     Q_INVOKABLE void setAutostartEnabled(bool enabled);
 
+    // ✅ NEU: Option „nur Tray“
+    Q_INVOKABLE bool startOnlyTray() const;
+    Q_INVOKABLE void setStartOnlyTray(bool enabled);
+
 private:
     QString autostartFilePath() const;
 };
