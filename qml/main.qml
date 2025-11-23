@@ -10,6 +10,7 @@ ApplicationWindow {
     height: 400
     title: "FavList"
 
+
     // Dark-/Light-Theme-Erkennung
     property bool darkTheme: Qt.styleHints.colorScheme === Qt.Dark
 
