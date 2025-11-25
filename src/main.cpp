@@ -42,20 +42,15 @@ int main(int argc, char *argv[])
     QIcon appIcon(":/resources/icons/appicon.png");
     app.setWindowIcon(appIcon);
 
-    QStringList fallbackThemes = {"breeze", "hicolor", "Adwaita", "Mint-Y"};
-    bool themeFound = false;
-
-    for (const QString &theme : fallbackThemes) {
-        QIcon::setThemeName(theme);
-        if (!QIcon::fromTheme("folder").isNull()) {
-            qDebug() << "Icon-Theme verwendet:" << theme;
-            themeFound = true;
-            break;
-        }
-    }
-
-    if (!themeFound) {
-        qDebug() << "Kein passendes Icon-Theme gefunden. Icons evtl. nicht sichtbar.";
+    // 🔹 Icon-Theme-Verhalten:
+    //    - Standard: das vom Desktop gesetzte Theme verwenden (Mint-Y, Breeze, …)
+    //    - Nur falls GAR KEIN Theme gesetzt ist (Minimal-Umgebung), auf "hicolor" zurückfallen.
+    QString currentTheme = QIcon::themeName();
+    if (currentTheme.isEmpty()) {
+        QIcon::setThemeName("hicolor");
+        qDebug() << "Kein System-Icon-Theme gesetzt. Fallback auf 'hicolor'.";
+    } else {
+        qDebug() << "System-Icon-Theme wird verwendet:" << currentTheme;
     }
 
     // 🔹 Prüfen, ob überhaupt ein System-Tray verfügbar ist
@@ -134,52 +129,52 @@ int main(int argc, char *argv[])
         //    - aus Autostart gestartet
         //    - und "nur Tray" aktiviert
         if (startedFromAutostart
-                && autostartManager.startOnlyTray()
-                && window) {
+            && autostartManager.startOnlyTray()
+            && window) {
             window->hide();
-        }
-
-        // Tray-Icon Klick: Fenster ein-/ausblenden
-        QObject::connect(trayIcon, &QSystemTrayIcon::activated,
-                         &app, [window](QSystemTrayIcon::ActivationReason reason) {
-            if (!window)
-                return;
-
-            if (reason == QSystemTrayIcon::Trigger ||
-                reason == QSystemTrayIcon::DoubleClick) {
-
-                if (window->isVisible()) {
-                    window->hide();
-                } else {
-                    window->show();
-                    window->raise();
-                    window->requestActivate();
-                }
             }
-        });
 
-        // "Öffnen" im Menü
-        QObject::connect(showAction, &QAction::triggered, [window]() {
-            if (!window)
-                return;
-            window->show();
-            window->raise();
-            window->requestActivate();
-        });
+            // Tray-Icon Klick: Fenster ein-/ausblenden
+            QObject::connect(trayIcon, &QSystemTrayIcon::activated,
+                             &app, [window](QSystemTrayIcon::ActivationReason reason) {
+                                 if (!window)
+                                     return;
 
-        // "Einstellungen..." im Menü → nur Settings-Fenster öffnen
-        QObject::connect(settingsAction, &QAction::triggered, [&engine]() {
-            if (engine.rootObjects().isEmpty())
-                return;
+                                 if (reason == QSystemTrayIcon::Trigger ||
+                                     reason == QSystemTrayIcon::DoubleClick) {
 
-            QObject *rootObject = engine.rootObjects().first();
-            QMetaObject::invokeMethod(rootObject, "openSettings",
-                                      Qt::QueuedConnection);
-        });
+                                     if (window->isVisible()) {
+                                         window->hide();
+                                     } else {
+                                         window->show();
+                                         window->raise();
+                                         window->requestActivate();
+                                     }
+                                     }
+                             });
 
-        // "Beenden" im Menü
-        QObject::connect(quitAction, &QAction::triggered,
-                         &app, &QCoreApplication::quit);
+            // "Öffnen" im Menü
+            QObject::connect(showAction, &QAction::triggered, [window]() {
+                if (!window)
+                    return;
+                window->show();
+                window->raise();
+                window->requestActivate();
+            });
+
+            // "Einstellungen..." im Menü → nur Settings-Fenster öffnen
+            QObject::connect(settingsAction, &QAction::triggered, [&engine]() {
+                if (engine.rootObjects().isEmpty())
+                    return;
+
+                QObject *rootObject = engine.rootObjects().first();
+                QMetaObject::invokeMethod(rootObject, "openSettings",
+                                          Qt::QueuedConnection);
+            });
+
+            // "Beenden" im Menü
+            QObject::connect(quitAction, &QAction::triggered,
+                             &app, &QCoreApplication::quit);
     }
 
     return app.exec();
