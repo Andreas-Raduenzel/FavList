@@ -194,13 +194,16 @@ ApplicationWindow {
             }
         }
 
-        ListView {
+                ListView {
             id: listView
             Layout.fillWidth: true
             Layout.fillHeight: true
             spacing: 4
             model: backend.favorites
             clip: true
+
+            // wir scrollen per Scrollbar/Mausrad, nicht durch Drag der Items
+            interactive: false
 
             rightMargin: scroll.visible ? 25 : 0
 
@@ -210,7 +213,6 @@ ApplicationWindow {
                 visible: listView.count > 0 && listView.contentHeight > listView.height
             }
 
-            // Delegate: ein Eintrag + DragHandler für Reordering
             delegate: Item {
                 id: rowItem
                 width: listView.width - (scroll.visible ? 25 : 0)
@@ -219,11 +221,14 @@ ApplicationWindow {
                 required property int index
                 required property string modelData
 
+                // Y-Startposition merken, um aus der Verschiebung die Ziel-Position zu berechnen
+                property real startY: 0
+
                 Rectangle {
                     anchors.fill: parent
                     color: "transparent"
-                    border.width: dragHandler.active ? 1 : 0
-                    border.color: dragHandler.active
+                    border.width: dragArea.drag.active ? 1 : 0
+                    border.color: dragArea.drag.active
                                    ? (darkTheme ? "#8fb1ff" : "#3355ff")
                                    : "transparent"
                     radius: 4
@@ -232,33 +237,53 @@ ApplicationWindow {
                         anchors.fill: parent
                         spacing: 8
 
-                        Label {
-                            text: "⬆"
+                        // Griff zum Verschieben
+                        Text {
+                            text: "≡"
                             font.pixelSize: 14
-                            verticalAlignment: Text.AlignVCenter
-                            enabled: index > 0
-                            opacity: enabled ? 1.0 : 0.3
+                            Layout.alignment: Qt.AlignVCenter
+                            color: darkTheme ? "white" : "black"
 
                             MouseArea {
+                                id: dragArea
                                 anchors.fill: parent
-                                enabled: parent.enabled
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: backend.moveFavorite(index, index - 1)
-                            }
-                        }
+                                cursorShape: Qt.SizeAllCursor
 
-                        Label {
-                            text: "⬇"
-                            font.pixelSize: 14
-                            verticalAlignment: Text.AlignVCenter
-                            enabled: index < listView.count - 1
-                            opacity: enabled ? 1.0 : 0.3
+                                // Ziehen nur in Y-Richtung, und nur rowItem
+                                drag.target: rowItem
+                                drag.axis: Drag.YAxis
 
-                            MouseArea {
-                                anchors.fill: parent
-                                enabled: parent.enabled
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: backend.moveFavorite(index, index + 1)
+                                onPressed: {
+                                    rowItem.startY = rowItem.y
+                                }
+
+                                onReleased: {
+                                    // Wie weit wurde vertikal verschoben?
+                                    var dy = rowItem.y - rowItem.startY
+                                    var rowStep = rowItem.height + listView.spacing
+
+                                    // Wieviele Zeilen rauf/runter? (auf ganze Zeilen runden)
+                                    var deltaRows = Math.round(dy / rowStep)
+                                    var newIndex = index + deltaRows
+
+                                    // Grenzen beachten
+                                    if (newIndex < 0)
+                                        newIndex = 0
+                                    if (newIndex > listView.count - 1)
+                                        newIndex = listView.count - 1
+
+                                    if (newIndex !== index) {
+                                        backend.moveFavorite(index, newIndex)
+                                    }
+
+                                    // Position wieder vom ListView-Layout bestimmen lassen
+                                    rowItem.y = 0
+                                }
+
+                                onCanceled: {
+                                    // Falls Drag abgebrochen wird → zurücksetzen
+                                    rowItem.y = 0
+                                }
                             }
                         }
 
@@ -270,6 +295,7 @@ ApplicationWindow {
                             Layout.alignment: Qt.AlignVCenter
                         }
 
+                        // Dateiname, klickbar zum Öffnen
                         Text {
                             text: modelData.split("/").pop()
                             color: darkTheme ? "white" : "black"
@@ -284,12 +310,12 @@ ApplicationWindow {
                             }
                         }
 
-                        Label {
+                        // Löschen
+                        Text {
                             text: "❌"
                             font.pixelSize: 16
                             color: darkTheme ? "white" : "black"
-                            verticalAlignment: Text.AlignVCenter
-                            padding: 4
+                            Layout.alignment: Qt.AlignVCenter
 
                             MouseArea {
                                 anchors.fill: parent
@@ -299,25 +325,8 @@ ApplicationWindow {
                         }
                     }
                 }
-
-                // Drag zum Verschieben, ohne Items optisch zu verschieben
-                DragHandler {
-                    id: dragHandler
-                    acceptedButtons: Qt.LeftButton
-
-                    onActiveChanged: {
-                        if (!active) {
-                            const center = Qt.point(rowItem.width / 2, rowItem.height / 2)
-                            const posInView = listView.mapFromItem(rowItem, center.x, center.y)
-                            const newIndex = listView.indexAt(posInView.x, posInView.y)
-
-                            if (newIndex >= 0 && newIndex !== index) {
-                                backend.moveFavorite(index, newIndex)
-                            }
-                        }
-                    }
-                }
             }
         }
+
     }
 }
