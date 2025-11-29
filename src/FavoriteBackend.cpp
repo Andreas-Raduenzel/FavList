@@ -123,3 +123,13 @@ void FavoriteBackend::moveFavorite(int from, int to)
     emit favoritesChanged();  // QML über neue Reihenfolge informieren
     save();                   // neue Reihenfolge persistent speichern
 }
+
+void FavoriteBackend::addFavoriteFromUrl(const QUrl &url)
+{
+    const QString path = url.toLocalFile();
+    if (path.isEmpty())
+        return;
+
+    addFavorite(path);  // nutzt deine vorhandene Logik + save() etc.
+}
+

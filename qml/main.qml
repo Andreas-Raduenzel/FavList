@@ -10,7 +10,6 @@ ApplicationWindow {
     height: 400
     title: "FavList"
 
-
     // Dark-/Light-Theme-Erkennung
     property bool darkTheme: Qt.styleHints.colorScheme === Qt.Dark
 
@@ -32,13 +31,13 @@ ApplicationWindow {
         settingsWindow.requestActivate();
     }
 
- onClosing: function(close) {
-    if (trayAvailable) {
-        close.accepted = false
-        hide()
-    } else {
-        close.accepted = true
-    }   
+    onClosing: function(close) {
+        if (trayAvailable) {
+            close.accepted = false
+            hide()
+        } else {
+            close.accepted = true
+        }
     }
 
     // Shortcut für Einstellungen (z.B. Strg+,)
@@ -51,6 +50,50 @@ ApplicationWindow {
     SystemPalette {
         id: sysPalette
         colorGroup: SystemPalette.Active
+    }
+
+    // <<< NEU: Overlay für visuelles Feedback beim Drag
+    Rectangle {
+        id: dragOverlay
+        anchors.fill: parent
+        color: darkTheme ? "#40ffffff" : "#40000000" // halbtransparent
+        visible: dropArea.containsDrag               // nur sichtbar, wenn gerade etwas „drüber“ ist
+        z: 98
+        border.width: 2
+        border.color: darkTheme ? "white" : "black"
+
+        Text {
+            anchors.centerIn: parent
+            text: "Datei hierher ziehen, um sie zur Liste hinzuzufügen"
+            color: darkTheme ? "white" : "black"
+            wrapMode: Text.WordWrap
+            horizontalAlignment: Text.AlignHCenter
+            width: parent.width * 0.8
+        }
+    }
+
+    // <<< NEU: DropArea über das ganze Fenster
+    DropArea {
+        id: dropArea
+        anchors.fill: parent
+        z: 99
+        keys: ["text/uri-list"]    // Dateien vom Dateimanager
+
+        onEntered: function(drag) {
+            if (drag.hasUrls) {
+                drag.acceptProposedAction();
+            }
+        }
+
+        onDropped: function(drop) {
+            if (!drop.hasUrls)
+                return;
+
+            // Alle gedroppten Dateien zur Favoritenliste hinzufügen
+            for (let i = 0; i < drop.urls.length; ++i) {
+                backend.addFavoriteFromUrl(drop.urls[i]);
+            }
+        }
     }
 
     // 🔹 Eigenes Einstellungsfenster mit Systemfarben
@@ -88,15 +131,14 @@ ApplicationWindow {
             }
 
             // ✅ Nur Tray-Icon (abhängig von Autostart & nur sinnvoll, wenn Tray existiert)
-                CheckBox {
-                    text: "Beim Start nur Tray-Icon anzeigen"
-                    visible: trayAvailable                // <--- NEU: nur anzeigen, wenn es einen Tray gibt
-                    enabled: autostartCheck.checked
-                    checked: autostartManager.startOnlyTray()
+            CheckBox {
+                text: "Beim Start nur Tray-Icon anzeigen"
+                visible: trayAvailable
+                enabled: autostartCheck.checked
+                checked: autostartManager.startOnlyTray()
 
-                    onToggled: autostartManager.setStartOnlyTray(checked)
-                }
-
+                onToggled: autostartManager.setStartOnlyTray(checked)
+            }
 
             Label {
                 text: "(Weitere Optionen folgen …)"
@@ -129,7 +171,7 @@ ApplicationWindow {
 
             TextField {
                 id: pathInput
-                placeholderText: "Pfad zur Datei oder zum Ordner eingeben..."
+                placeholderText: "Pfad eingeben oder Datei auf das Fenster ziehen..."
                 Layout.fillWidth: true
                 onAccepted: {
                     if (text.length > 0) {
