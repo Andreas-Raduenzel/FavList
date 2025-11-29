@@ -13,128 +13,169 @@
 #include <QAction>
 
 #include "FavoriteBackend.h"
-//#include "AppSettings.h"
+#include "autostartmanager.h"
+
+#include <QFile>
 
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
 
-    //AppSettings appSettings;
+    // 🔹 Prüfen, ob wir mit --autostart gestartet wurden
+    bool startedFromAutostart = false;
+    QStringList args = app.arguments();
+    if (args.contains("--autostart")) {
+        startedFromAutostart = true;
+    }
 
-    // ❗ Nur eine Instanz erlauben
+    // 🔹 Single-Instance
     QSharedMemory sharedMemory("FavListSingleInstanceKey");
     if (!sharedMemory.create(1)) {
         qDebug() << "FavList läuft bereits. Beende zweite Instanz.";
-        return 0;   // Sofort beenden, kein zweites Tray-Icon
+        return 0;
     }
-
-    // Wichtig: App soll weiterlaufen, auch wenn kein Fenster mehr offen ist
-    app.setQuitOnLastWindowClosed(false);
 
     QCoreApplication::setOrganizationName("crumbTechFavApp");
     QCoreApplication::setApplicationName("FavList");
+    QGuiApplication::setDesktopFileName("favlist");
 
-    // Desktop-Dateiname für Integration unter Linux
-    QGuiApplication::setDesktopFileName("favorlist");  // ohne Pfad
-
-    // App-Icon laden
-    QIcon appIcon(":/resources/appicon.svg");
+    QIcon appIcon(":/resources/icons/appicon.png");
     app.setWindowIcon(appIcon);
 
-    // Icon-Theme-Fallbacks
-    QStringList fallbackThemes = {"breeze", "hicolor", "Adwaita", "Mint-Y"};
-    bool themeFound = false;
-
-    for (const QString &theme : fallbackThemes) {
-        QIcon::setThemeName(theme);
-        if (!QIcon::fromTheme("folder").isNull()) {
-            qDebug() << "Icon-Theme verwendet:" << theme;
-            themeFound = true;
-            break;
-        }
+    // 🔹 Icon-Theme-Verhalten:
+    //    - Standard: das vom Desktop gesetzte Theme verwenden (Mint-Y, Breeze, …)
+    //    - Nur falls GAR KEIN Theme gesetzt ist (Minimal-Umgebung), auf "hicolor" zurückfallen.
+    QString currentTheme = QIcon::themeName();
+    if (currentTheme.isEmpty()) {
+        QIcon::setThemeName("hicolor");
+        qDebug() << "Kein System-Icon-Theme gesetzt. Fallback auf 'hicolor'.";
+    } else {
+        qDebug() << "System-Icon-Theme wird verwendet:" << currentTheme;
     }
 
-    if (!themeFound) {
-        qDebug() << "Kein passendes Icon-Theme gefunden. Icons evtl. nicht sichtbar.";
+    // 🔹 Prüfen, ob überhaupt ein System-Tray verfügbar ist
+    bool trayAvailable = QSystemTrayIcon::isSystemTrayAvailable();
+    /*trayAvailable = false;   // <<< TEST-MODUS: so tun, als gäbe es keinen Tray*/
+
+    if (!trayAvailable) {
+        qWarning() << "System Tray nicht verfügbar!";
     }
 
-    // QML Engine starten
+    // 🔹 Verhalten beim letzten Fenster:
+    //    - mit Tray: App weiterlaufen lassen
+    //    - ohne Tray: ganz normal beenden
+    if (trayAvailable) {
+        app.setQuitOnLastWindowClosed(false);
+    } else {
+        app.setQuitOnLastWindowClosed(true);
+    }
+
     QQmlApplicationEngine engine;
 
-    //engine.rootContext()->setContextProperty("appSettings", &appSettings);
-    //engine.load(QStringLiteral("qrc:/qml/main.qml"));
-
-    // Backend-Objekt für QML verfügbar machen
+    // 🔹 C++-Objekte anlegen
+    AutostartManager autostartManager;
     FavoriteBackend backend;
-    engine.rootContext()->setContextProperty("backend", &backend);
 
-    // QML-Datei laden (lokaler Pfad)
-    QString qmlPath = QDir::cleanPath(QCoreApplication::applicationDirPath() + "/../qml/main.qml");
+    // 🔹 Kontext-Properties für QML
+    engine.rootContext()->setContextProperty("autostartManager", &autostartManager);
+    engine.rootContext()->setContextProperty("backend", &backend);
+    engine.rootContext()->setContextProperty("trayAvailable", trayAvailable);
+    engine.rootContext()->setContextProperty("startedFromAutostart", startedFromAutostart);
+
+    QString qmlPath = QDir::cleanPath(
+        QCoreApplication::applicationDirPath() + "/../qml/main.qml"
+    );
+
+    if (!QFile::exists(qmlPath)) {
+        qmlPath = "/usr/share/favoriten/qml/main.qml";
+    }
+
     engine.load(QUrl::fromLocalFile(qmlPath));
 
     if (engine.rootObjects().isEmpty())
         return -1;
 
-    // Hauptfenster ermitteln
     QObject *topLevel = engine.rootObjects().first();
     QWindow *window = qobject_cast<QWindow *>(topLevel);
     if (window) {
         window->setIcon(appIcon);
     }
 
-    // --- System-Tray-Icon einrichten ---
-    if (!QSystemTrayIcon::isSystemTrayAvailable()) {
-        qWarning() << "System Tray nicht verfügbar!";
+    // 🔹 Nur Tray-Icon und Menü anlegen, wenn ein System-Tray verfügbar ist
+    QSystemTrayIcon *trayIcon = nullptr;
+    QMenu *trayMenu = nullptr;
+
+    if (trayAvailable) {
+
+        trayIcon = new QSystemTrayIcon(&app);
+        trayIcon->setIcon(appIcon);
+        trayIcon->setToolTip("Favorite");
+
+        trayMenu = new QMenu();
+        QAction *showAction = new QAction("Öffnen", trayMenu);
+        QAction *settingsAction = new QAction("Einstellungen...", trayMenu);
+        QAction *quitAction = new QAction("Beenden", trayMenu);
+
+        // Reihenfolge im Menü
+        trayMenu->addAction(showAction);
+        trayMenu->addAction(settingsAction);
+        trayMenu->addSeparator();
+        trayMenu->addAction(quitAction);
+
+        trayIcon->setContextMenu(trayMenu);
+        trayIcon->show();
+
+        // ✅ NUR Tray-Icon anzeigen, wenn:
+        //    - aus Autostart gestartet
+        //    - und "nur Tray" aktiviert
+        if (startedFromAutostart
+            && autostartManager.startOnlyTray()
+            && window) {
+            window->hide();
+            }
+
+            // Tray-Icon Klick: Fenster ein-/ausblenden
+            QObject::connect(trayIcon, &QSystemTrayIcon::activated,
+                             &app, [window](QSystemTrayIcon::ActivationReason reason) {
+                                 if (!window)
+                                     return;
+
+                                 if (reason == QSystemTrayIcon::Trigger ||
+                                     reason == QSystemTrayIcon::DoubleClick) {
+
+                                     if (window->isVisible()) {
+                                         window->hide();
+                                     } else {
+                                         window->show();
+                                         window->raise();
+                                         window->requestActivate();
+                                     }
+                                     }
+                             });
+
+            // "Öffnen" im Menü
+            QObject::connect(showAction, &QAction::triggered, [window]() {
+                if (!window)
+                    return;
+                window->show();
+                window->raise();
+                window->requestActivate();
+            });
+
+            // "Einstellungen..." im Menü → nur Settings-Fenster öffnen
+            QObject::connect(settingsAction, &QAction::triggered, [&engine]() {
+                if (engine.rootObjects().isEmpty())
+                    return;
+
+                QObject *rootObject = engine.rootObjects().first();
+                QMetaObject::invokeMethod(rootObject, "openSettings",
+                                          Qt::QueuedConnection);
+            });
+
+            // "Beenden" im Menü
+            QObject::connect(quitAction, &QAction::triggered,
+                             &app, &QCoreApplication::quit);
     }
-
-    // Tray-Icon erstellen
-    QSystemTrayIcon *trayIcon = new QSystemTrayIcon(&app);
-    trayIcon->setIcon(appIcon);
-    trayIcon->setToolTip("Favorite");
-
-    // Kontextmenü für Tray
-    QMenu *trayMenu = new QMenu();
-    QAction *showAction = new QAction("Öffnen", trayMenu);
-    QAction *quitAction = new QAction("Beenden", trayMenu);
-
-    trayMenu->addAction(showAction);
-    trayMenu->addSeparator();
-    trayMenu->addAction(quitAction);
-
-    trayIcon->setContextMenu(trayMenu);
-    trayIcon->show();
-
-    // Klick auf Tray-Icon: Fenster ein-/ausblenden
-    QObject::connect(trayIcon, &QSystemTrayIcon::activated,
-                     &app, [window](QSystemTrayIcon::ActivationReason reason) {
-                         if (!window)
-                             return;
-
-                         if (reason == QSystemTrayIcon::Trigger ||
-                             reason == QSystemTrayIcon::DoubleClick) {
-
-                             if (window->isVisible()) {
-                                 window->hide();
-                             } else {
-                                 window->show();
-                                 window->raise();
-                                 window->requestActivate();
-                             }
-                             }
-                     });
-
-    // "Öffnen" im Menü
-    QObject::connect(showAction, &QAction::triggered, [window]() {
-        if (!window)
-            return;
-        window->show();
-        window->raise();
-        window->requestActivate();
-    });
-
-    // "Beenden" im Menü
-    QObject::connect(quitAction, &QAction::triggered,
-                     &app, &QCoreApplication::quit);
 
     return app.exec();
 }

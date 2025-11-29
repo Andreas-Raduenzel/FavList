@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
+import QtQuick.Window 2.15
 
 ApplicationWindow {
     id: mainWindow
@@ -9,10 +10,11 @@ ApplicationWindow {
     height: 400
     title: "FavList"
 
+
     // Dark-/Light-Theme-Erkennung
     property bool darkTheme: Qt.styleHints.colorScheme === Qt.Dark
 
-    // Wird vom Tray (oder später) genutzt, um Fenster ein-/auszublenden
+    // Wird vom Tray genutzt, um Fenster ein-/auszublenden
     function toggleVisibility() {
         if (visible) {
             hide();
@@ -23,31 +25,132 @@ ApplicationWindow {
         }
     }
 
-    // Beim Klick auf das X nicht wirklich beenden, sondern nur ins Tray
-    onClosing: {
-        close.accepted = false      // verhindert echtes Schließen
-        hide()
+    // Wird aus C++ (Tray) aufgerufen
+    function openSettings() {
+        settingsWindow.show();
+        settingsWindow.raise();
+        settingsWindow.requestActivate();
     }
 
+ onClosing: function(close) {
+    if (trayAvailable) {
+        close.accepted = false
+        hide()
+    } else {
+        close.accepted = true
+    }   
+    }
+
+    // Shortcut für Einstellungen (z.B. Strg+,)
+    Shortcut {
+        sequence: StandardKey.Preferences
+        onActivated: mainWindow.openSettings()
+    }
+
+    // 🔹 System-Palette vom aktuellen Theme holen
+    SystemPalette {
+        id: sysPalette
+        colorGroup: SystemPalette.Active
+    }
+
+    // 🔹 Eigenes Einstellungsfenster mit Systemfarben
+    Window {
+        id: settingsWindow
+        width: 320
+        height: 200
+        title: "Einstellungen – FavList"
+        modality: Qt.ApplicationModal
+        flags: Qt.Dialog | Qt.WindowCloseButtonHint
+        visible: false
+
+        // Hintergrund an System-Theme koppeln
+        color: sysPalette.window
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 12
+            spacing: 8
+
+            // ✅ Autostart an/aus
+            CheckBox {
+                id: autostartCheck
+                text: "Beim Systemstart automatisch starten"
+                checked: autostartManager.isAutostartEnabled()
+
+                onToggled: {
+                    autostartManager.setAutostartEnabled(checked)
+
+                    // Optional: „nur Tray“ zurücksetzen, wenn Autostart aus
+                    if (!checked) {
+                        autostartManager.setStartOnlyTray(false)
+                    }
+                }
+            }
+
+            // ✅ Nur Tray-Icon (abhängig von Autostart & nur sinnvoll, wenn Tray existiert)
+                CheckBox {
+                    text: "Beim Start nur Tray-Icon anzeigen"
+                    visible: trayAvailable                // <--- NEU: nur anzeigen, wenn es einen Tray gibt
+                    enabled: autostartCheck.checked
+                    checked: autostartManager.startOnlyTray()
+
+                    onToggled: autostartManager.setStartOnlyTray(checked)
+                }
+
+
+            Label {
+                text: "(Weitere Optionen folgen …)"
+                opacity: 0.6
+                color: sysPalette.windowText
+            }
+
+            Item {
+                Layout.fillHeight: true
+            }
+
+            Button {
+                text: "Schließen"
+                Layout.alignment: Qt.AlignRight
+                onClicked: settingsWindow.close()
+            }
+        }
+    }
+
+    // 🔹 Hauptinhalt der App
     ColumnLayout {
         anchors.fill: parent
         spacing: 10
         anchors.margins: 10
 
-        TextField {
-            id: pathInput
-            placeholderText: "Pfad zur Datei oder zum Ordner eingeben..."
+        // Zeile mit Eingabefeld + Zahnrad
+        RowLayout {
             Layout.fillWidth: true
-            onAccepted: {
-                if (text.length > 0) {
-                    backend.addFavorite(text)
-                    text = ""
+            spacing: 6
+
+            TextField {
+                id: pathInput
+                placeholderText: "Pfad zur Datei oder zum Ordner eingeben..."
+                Layout.fillWidth: true
+                onAccepted: {
+                    if (text.length > 0) {
+                        backend.addFavorite(text)
+                        text = ""
+                    }
                 }
+            }
+
+            ToolButton {
+                text: "⚙"
+                Accessible.name: "Einstellungen"
+                onClicked: mainWindow.openSettings()
+                ToolTip.visible: hovered
+                ToolTip.text: "Einstellungen öffnen"
             }
         }
 
         Button {
             text: "Hinzufügen"
+            Layout.fillWidth: true
             onClicked: {
                 if (pathInput.text.length > 0) {
                     backend.addFavorite(pathInput.text)
@@ -81,7 +184,6 @@ ApplicationWindow {
                     anchors.fill: parent
                     spacing: 8
 
-                    // Hoch-Pfeil
                     Label {
                         text: "⬆"
                         font.pixelSize: 14
@@ -97,7 +199,6 @@ ApplicationWindow {
                         }
                     }
 
-                    // Runter-Pfeil
                     Label {
                         text: "⬇"
                         font.pixelSize: 14

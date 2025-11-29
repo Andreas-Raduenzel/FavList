@@ -1,13 +1,15 @@
 #include "FavoriteBackend.h"
+
 #include <QFile>
 #include <QFileInfo>
 #include <QStandardPaths>
-#include <QTextStream>
 #include <QMimeDatabase>
 #include <QMimeType>
 #include <QIcon>
-#include <QPixmap>
 #include <QDir>
+#include <QJsonDocument>
+#include <QJsonArray>
+#include <QJsonValue>
 
 FavoriteBackend::FavoriteBackend(QObject *parent)
     : QObject(parent)
@@ -40,28 +42,49 @@ void FavoriteBackend::removeFavorite(const QString &path)
 
 void FavoriteBackend::load()
 {
-    QString path = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/favorites.txt";
+    QString path = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
+                   + "/favorites.json";
+
     QFile file(path);
-    if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        QTextStream in(&file);
-        while (!in.atEnd()) {
-            QString line = in.readLine();
-            if (!line.isEmpty())
-                m_favorites.append(line);
+    if (!file.open(QIODevice::ReadOnly))
+        return;
+
+    QByteArray data = file.readAll();
+    QJsonDocument doc = QJsonDocument::fromJson(data);
+    if (!doc.isArray())
+        return;
+
+    QJsonArray array = doc.array();
+
+    m_favorites.clear();
+    for (const QJsonValue &value : array) {
+        if (value.isString()) {
+            QString fav = value.toString();
+            if (!fav.isEmpty())
+                m_favorites.append(fav);
         }
     }
+
+    // Falls beim Programmstart schon ein QML-Binding existiert
+    emit favoritesChanged();
 }
 
 void FavoriteBackend::save()
 {
     QString path = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
     QDir().mkpath(path);
-    QFile file(path + "/favorites.txt");
-    if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        QTextStream out(&file);
-        for (const QString &fav : m_favorites)
-            out << fav << "\n";
+
+    QFile file(path + "/favorites.json");
+    if (!file.open(QIODevice::WriteOnly))
+        return;
+
+    QJsonArray array;
+    for (const QString &fav : m_favorites) {
+        array.append(fav);  // jeder Favorit ist ein Eintrag im JSON-Array
     }
+
+    QJsonDocument doc(array);
+    file.write(doc.toJson());
 }
 
 QString FavoriteBackend::iconPathForFile(const QString &path)
@@ -71,7 +94,8 @@ QString FavoriteBackend::iconPathForFile(const QString &path)
     QIcon icon = QIcon::fromTheme(type.iconName());
 
     if (!icon.isNull()) {
-        QString tmpPath = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/icon_" + QFileInfo(path).suffix() + ".png";
+        QString tmpPath = QStandardPaths::writableLocation(QStandardPaths::TempLocation)
+                          + "/icon_" + QFileInfo(path).suffix() + ".png";
         icon.pixmap(32, 32).save(tmpPath);
         return tmpPath;
     }
@@ -87,11 +111,15 @@ void FavoriteBackend::moveFavorite(int from, int to)
     if (from == to)
         return;
 
-    // Eintrag verschieben
     QString item = m_favorites.at(from);
     m_favorites.removeAt(from);
+
+    // Wenn der ursprüngliche Index kleiner war, verschiebt sich das Ziel um eins nach vorne
+    if (from < to)
+        --to;
+
     m_favorites.insert(to, item);
 
-    emit favoritesChanged();  // damit QML die neue Reihenfolge sieht
-    save();                   // optional: neue Reihenfolge direkt speichern
+    emit favoritesChanged();  // QML über neue Reihenfolge informieren
+    save();                   // neue Reihenfolge persistent speichern
 }
