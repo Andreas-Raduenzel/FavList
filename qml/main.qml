@@ -52,7 +52,7 @@ ApplicationWindow {
         colorGroup: SystemPalette.Active
     }
 
-    // <<< NEU: Overlay für visuelles Feedback beim Drag
+    // Overlay für visuelles Feedback beim Datei-Drag von außen
     Rectangle {
         id: dragOverlay
         anchors.fill: parent
@@ -72,7 +72,7 @@ ApplicationWindow {
         }
     }
 
-    // <<< NEU: DropArea über das ganze Fenster
+    // DropArea über das ganze Fenster für neue Favoriten
     DropArea {
         id: dropArea
         anchors.fill: parent
@@ -89,14 +89,13 @@ ApplicationWindow {
             if (!drop.hasUrls)
                 return;
 
-            // Alle gedroppten Dateien zur Favoritenliste hinzufügen
             for (let i = 0; i < drop.urls.length; ++i) {
                 backend.addFavoriteFromUrl(drop.urls[i]);
             }
         }
     }
 
-    // 🔹 Eigenes Einstellungsfenster mit Systemfarben
+    // Einstellungsfenster
     Window {
         id: settingsWindow
         width: 320
@@ -106,7 +105,6 @@ ApplicationWindow {
         flags: Qt.Dialog | Qt.WindowCloseButtonHint
         visible: false
 
-        // Hintergrund an System-Theme koppeln
         color: sysPalette.window
 
         ColumnLayout {
@@ -114,7 +112,6 @@ ApplicationWindow {
             anchors.margins: 12
             spacing: 8
 
-            // ✅ Autostart an/aus
             CheckBox {
                 id: autostartCheck
                 text: "Beim Systemstart automatisch starten"
@@ -122,15 +119,12 @@ ApplicationWindow {
 
                 onToggled: {
                     autostartManager.setAutostartEnabled(checked)
-
-                    // Optional: „nur Tray“ zurücksetzen, wenn Autostart aus
                     if (!checked) {
                         autostartManager.setStartOnlyTray(false)
                     }
                 }
             }
 
-            // ✅ Nur Tray-Icon (abhängig von Autostart & nur sinnvoll, wenn Tray existiert)
             CheckBox {
                 text: "Beim Start nur Tray-Icon anzeigen"
                 visible: trayAvailable
@@ -158,13 +152,12 @@ ApplicationWindow {
         }
     }
 
-    // 🔹 Hauptinhalt der App
+    // Hauptinhalt der App
     ColumnLayout {
         anchors.fill: parent
         spacing: 10
         anchors.margins: 10
 
-        // Zeile mit Eingabefeld + Zahnrad
         RowLayout {
             Layout.fillWidth: true
             spacing: 6
@@ -217,78 +210,110 @@ ApplicationWindow {
                 visible: listView.count > 0 && listView.contentHeight > listView.height
             }
 
-            delegate: Rectangle {
-                width: parent.width - (scroll.visible ? 25 : 0)
+            // Delegate: ein Eintrag + DragHandler für Reordering
+            delegate: Item {
+                id: rowItem
+                width: listView.width - (scroll.visible ? 25 : 0)
                 height: 36
-                color: "transparent"
 
-                RowLayout {
+                required property int index
+                required property string modelData
+
+                Rectangle {
                     anchors.fill: parent
-                    spacing: 8
+                    color: "transparent"
+                    border.width: dragHandler.active ? 1 : 0
+                    border.color: dragHandler.active
+                                   ? (darkTheme ? "#8fb1ff" : "#3355ff")
+                                   : "transparent"
+                    radius: 4
 
-                    Label {
-                        text: "⬆"
-                        font.pixelSize: 14
-                        verticalAlignment: Text.AlignVCenter
-                        enabled: index > 0
-                        opacity: enabled ? 1.0 : 0.3
+                    RowLayout {
+                        anchors.fill: parent
+                        spacing: 8
 
-                        MouseArea {
-                            anchors.fill: parent
-                            enabled: parent.enabled
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: backend.moveFavorite(index, index - 1)
+                        Label {
+                            text: "⬆"
+                            font.pixelSize: 14
+                            verticalAlignment: Text.AlignVCenter
+                            enabled: index > 0
+                            opacity: enabled ? 1.0 : 0.3
+
+                            MouseArea {
+                                anchors.fill: parent
+                                enabled: parent.enabled
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: backend.moveFavorite(index, index - 1)
+                            }
+                        }
+
+                        Label {
+                            text: "⬇"
+                            font.pixelSize: 14
+                            verticalAlignment: Text.AlignVCenter
+                            enabled: index < listView.count - 1
+                            opacity: enabled ? 1.0 : 0.3
+
+                            MouseArea {
+                                anchors.fill: parent
+                                enabled: parent.enabled
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: backend.moveFavorite(index, index + 1)
+                            }
+                        }
+
+                        Image {
+                            source: backend.iconPathForFile(modelData)
+                            width: 20
+                            height: 20
+                            fillMode: Image.PreserveAspectFit
+                            Layout.alignment: Qt.AlignVCenter
+                        }
+
+                        Text {
+                            text: modelData.split("/").pop()
+                            color: darkTheme ? "white" : "black"
+                            Layout.fillWidth: true
+                            elide: Text.ElideRight
+                            verticalAlignment: Text.AlignVCenter
+
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: Qt.openUrlExternally(modelData)
+                            }
+                        }
+
+                        Label {
+                            text: "❌"
+                            font.pixelSize: 16
+                            color: darkTheme ? "white" : "black"
+                            verticalAlignment: Text.AlignVCenter
+                            padding: 4
+
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: backend.removeFavorite(modelData)
+                            }
                         }
                     }
+                }
 
-                    Label {
-                        text: "⬇"
-                        font.pixelSize: 14
-                        verticalAlignment: Text.AlignVCenter
-                        enabled: index < listView.count - 1
-                        opacity: enabled ? 1.0 : 0.3
+                // Drag zum Verschieben, ohne Items optisch zu verschieben
+                DragHandler {
+                    id: dragHandler
+                    acceptedButtons: Qt.LeftButton
 
-                        MouseArea {
-                            anchors.fill: parent
-                            enabled: parent.enabled
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: backend.moveFavorite(index, index + 1)
-                        }
-                    }
+                    onActiveChanged: {
+                        if (!active) {
+                            const center = Qt.point(rowItem.width / 2, rowItem.height / 2)
+                            const posInView = listView.mapFromItem(rowItem, center.x, center.y)
+                            const newIndex = listView.indexAt(posInView.x, posInView.y)
 
-                    Image {
-                        source: backend.iconPathForFile(modelData)
-                        width: 20
-                        height: 20
-                        fillMode: Image.PreserveAspectFit
-                        Layout.alignment: Qt.AlignVCenter
-                    }
-
-                    Text {
-                        text: modelData.split("/").pop()
-                        color: darkTheme ? "white" : "black"
-                        Layout.fillWidth: true
-                        elide: Text.ElideRight
-                        verticalAlignment: Text.AlignVCenter
-
-                        MouseArea {
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: Qt.openUrlExternally(modelData)
-                        }
-                    }
-
-                    Label {
-                        text: "❌"
-                        font.pixelSize: 16
-                        color: darkTheme ? "white" : "black"
-                        verticalAlignment: Text.AlignVCenter
-                        padding: 4
-
-                        MouseArea {
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: backend.removeFavorite(modelData)
+                            if (newIndex >= 0 && newIndex !== index) {
+                                backend.moveFavorite(index, newIndex)
+                            }
                         }
                     }
                 }
