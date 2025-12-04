@@ -5,10 +5,24 @@ import QtQuick.Window 2.15
 
 ApplicationWindow {
     id: mainWindow
-    visible: true
+    visible: false
     width: 250
     height: 400
     title: "FavList"
+
+    flags: Qt.Tool | Qt.WindowCloseButtonHint | Qt.WindowStaysOnTopHint
+
+    // 🔹 Standardgröße merken
+    property int defaultWidth: 250
+    property int defaultHeight: 400
+
+    // 🔹 Funktion, um jederzeit auf die Standardgröße zurückzuspringen
+    function resetToDefaultSize() {
+        width = defaultWidth
+        height = defaultHeight
+    }
+
+
 
     // Dark-/Light-Theme-Erkennung
     property bool darkTheme: Qt.styleHints.colorScheme === Qt.Dark
@@ -126,15 +140,18 @@ ApplicationWindow {
 
                 onToggled: autostartManager.setStartOnlyTray(checked)
             }
-
-            Label {
-                text: "(Weitere Optionen folgen …)"
-                opacity: 0.6
-                color: sysPalette.windowText
-            }
+        
 
             Item {
                 Layout.fillHeight: true
+            }
+
+            Button {
+                text: "Fenstergröße zurücksetzen - Test"
+                Layout.alignment: Qt.AlignLeft
+                onClicked: {
+                    mainWindow.resetToDefaultSize()
+                }
             }
 
             Button {
@@ -343,7 +360,7 @@ ApplicationWindow {
                                 if (rowItem.wasDrag) {
                                     var targetIndex = listView.dragInsertIndex
 
-                                    // 🔹 ZUERST Drag-Zustand zurücksetzen
+                                    // 🔹 Drag-Zustand zurücksetzen
                                     rowItem.wasDrag = false
                                     listView.dragging = false
                                     listView.dragInsertIndex = -1
@@ -354,16 +371,23 @@ ApplicationWindow {
                                     if (targetIndex !== index) {
                                         backend.moveFavorite(index, targetIndex)
                                     }
+
                                 } else {
-                                    // normaler Klick → Favorit öffnen
+                                    // 🔹 normaler Klick → Favorit öffnen
                                     Qt.openUrlExternally(modelData)
 
-                                    // sicherheitshalber Zustand aufräumen
+                                    // 🔹 Fenster automatisch schließen, aber nur wenn ein Tray existiert
+                                    if (trayAvailable) {
+                                        mainWindow.hide()
+                                    }
+
+                                    // Zustand aufräumen
                                     rowItem.wasDrag = false
                                     listView.dragging = false
                                     listView.dragInsertIndex = -1
                                 }
                             }
+
 
 
                         onCanceled: {
