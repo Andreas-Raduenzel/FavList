@@ -65,7 +65,6 @@ void FavoriteBackend::load()
         }
     }
 
-    // Falls beim Programmstart schon ein QML-Binding existiert
     emit favoritesChanged();
 }
 
@@ -80,7 +79,7 @@ void FavoriteBackend::save()
 
     QJsonArray array;
     for (const QString &fav : m_favorites) {
-        array.append(fav);  // jeder Favorit ist ein Eintrag im JSON-Array
+        array.append(fav);
     }
 
     QJsonDocument doc(array);
@@ -113,13 +112,17 @@ void FavoriteBackend::moveFavorite(int from, int to)
 
     QString item = m_favorites.at(from);
     m_favorites.removeAt(from);
-
-    // Wenn der ursprüngliche Index kleiner war, verschiebt sich das Ziel um eins nach vorne
-    if (from < to)
-        --to;
-
     m_favorites.insert(to, item);
 
-    emit favoritesChanged();  // QML über neue Reihenfolge informieren
-    save();                   // neue Reihenfolge persistent speichern
+    emit favoritesChanged();
+    save();
+}
+
+void FavoriteBackend::addFavoriteFromUrl(const QUrl &url)
+{
+    const QString path = url.toLocalFile();
+    if (path.isEmpty())
+        return;
+
+    addFavorite(path);
 }

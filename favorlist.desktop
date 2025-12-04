@@ -1,18 +1,16 @@
 [Desktop Entry]
-Categories=Utility;
-Comment[de_DE]=Deine persönliche Favoritenliste
-Comment=Deine persönliche Favoritenliste
-Exec=/home/raa/Schreibtisch/favoriten_v32/build/favoriten
-GenericName[de_DE]=
-GenericName=
-Icon=/home/raa/Schreibtisch/favoriten_v32/resources/appicon.svg
-MimeType=
-Name[de_DE]=FavorList
-Name=FavorList
-Path=
-StartupNotify=true
-Terminal=false
-TerminalOptions=
 Type=Application
-X-KDE-SubstituteUID=false
-X-KDE-Username=
+
+Name=FavList
+Name[de_DE]=FavList
+
+Comment=Deine persönliche Favoritenliste
+Comment[de_DE]=Deine persönliche Favoritenliste
+
+Categories=Utility;
+
+Exec=/home/raa/Schreibtisch/FavList/build/favoriten
+Icon=/home/raa/Schreibtisch/FavList/resources/icons/appicon.svg
+
+Terminal=false
+StartupNotify=true

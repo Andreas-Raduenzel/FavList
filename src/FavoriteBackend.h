@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QStringList>
+#include <QUrl>              // <– neu
 
 class FavoriteBackend : public QObject
 {
@@ -17,6 +18,8 @@ public:
     Q_INVOKABLE void removeFavorite(const QString &path);
     Q_INVOKABLE QString iconPathForFile(const QString &path);
     Q_INVOKABLE void moveFavorite(int from, int to);
+    Q_INVOKABLE void addFavoriteFromUrl(const QUrl &url);   // <– neu
+    
 
 signals:
     void favoritesChanged();

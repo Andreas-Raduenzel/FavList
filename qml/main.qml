@@ -5,16 +5,28 @@ import QtQuick.Window 2.15
 
 ApplicationWindow {
     id: mainWindow
-    visible: true
+    visible: false
     width: 250
     height: 400
     title: "FavList"
+
+    flags: Qt.Tool | Qt.WindowCloseButtonHint | Qt.WindowStaysOnTopHint
+
+    // 🔹 Standardgröße merken
+    property int defaultWidth: 250
+    property int defaultHeight: 400
+
+    // 🔹 Funktion, um jederzeit auf die Standardgröße zurückzuspringen
+    function resetToDefaultSize() {
+        width = defaultWidth
+        height = defaultHeight
+    }
+
 
 
     // Dark-/Light-Theme-Erkennung
     property bool darkTheme: Qt.styleHints.colorScheme === Qt.Dark
 
-    // Wird vom Tray genutzt, um Fenster ein-/auszublenden
     function toggleVisibility() {
         if (visible) {
             hide();
@@ -25,35 +37,72 @@ ApplicationWindow {
         }
     }
 
-    // Wird aus C++ (Tray) aufgerufen
     function openSettings() {
         settingsWindow.show();
         settingsWindow.raise();
         settingsWindow.requestActivate();
     }
 
- onClosing: function(close) {
-    if (trayAvailable) {
-        close.accepted = false
-        hide()
-    } else {
-        close.accepted = true
-    }   
+    onClosing: function(close) {
+        if (trayAvailable) {
+            close.accepted = false
+            hide()
+        } else {
+            close.accepted = true
+        }
     }
 
-    // Shortcut für Einstellungen (z.B. Strg+,)
     Shortcut {
         sequence: StandardKey.Preferences
         onActivated: mainWindow.openSettings()
     }
 
-    // 🔹 System-Palette vom aktuellen Theme holen
     SystemPalette {
         id: sysPalette
         colorGroup: SystemPalette.Active
     }
 
-    // 🔹 Eigenes Einstellungsfenster mit Systemfarben
+    Rectangle {
+        id: dragOverlay
+        anchors.fill: parent
+        color: darkTheme ? "#40ffffff" : "#40000000"
+        visible: dropArea.containsDrag
+        z: 98
+        border.width: 2
+        border.color: darkTheme ? "white" : "black"
+
+        Text {
+            anchors.centerIn: parent
+            text: "Datei hierher ziehen, um sie zur Liste hinzuzufügen"
+            color: darkTheme ? "white" : "black"
+            wrapMode: Text.WordWrap
+            horizontalAlignment: Text.AlignHCenter
+            width: parent.width * 0.8
+        }
+    }
+
+    DropArea {
+        id: dropArea
+        anchors.fill: parent
+        z: 99
+        keys: ["text/uri-list"]
+
+        onEntered: function(drag) {
+            if (drag.hasUrls) {
+                drag.acceptProposedAction();
+            }
+        }
+
+        onDropped: function(drop) {
+            if (!drop.hasUrls)
+                return;
+
+            for (let i = 0; i < drop.urls.length; ++i) {
+                backend.addFavoriteFromUrl(drop.urls[i]);
+            }
+        }
+    }
+
     Window {
         id: settingsWindow
         width: 320
@@ -63,7 +112,6 @@ ApplicationWindow {
         flags: Qt.Dialog | Qt.WindowCloseButtonHint
         visible: false
 
-        // Hintergrund an System-Theme koppeln
         color: sysPalette.window
 
         ColumnLayout {
@@ -71,7 +119,6 @@ ApplicationWindow {
             anchors.margins: 12
             spacing: 8
 
-            // ✅ Autostart an/aus
             CheckBox {
                 id: autostartCheck
                 text: "Beim Systemstart automatisch starten"
@@ -79,33 +126,32 @@ ApplicationWindow {
 
                 onToggled: {
                     autostartManager.setAutostartEnabled(checked)
-
-                    // Optional: „nur Tray“ zurücksetzen, wenn Autostart aus
                     if (!checked) {
                         autostartManager.setStartOnlyTray(false)
                     }
                 }
             }
 
-            // ✅ Nur Tray-Icon (abhängig von Autostart & nur sinnvoll, wenn Tray existiert)
-                CheckBox {
-                    text: "Beim Start nur Tray-Icon anzeigen"
-                    visible: trayAvailable                // <--- NEU: nur anzeigen, wenn es einen Tray gibt
-                    enabled: autostartCheck.checked
-                    checked: autostartManager.startOnlyTray()
+            CheckBox {
+                text: "Beim Start nur Tray-Icon anzeigen"
+                visible: trayAvailable
+                enabled: autostartCheck.checked
+                checked: autostartManager.startOnlyTray()
 
-                    onToggled: autostartManager.setStartOnlyTray(checked)
-                }
-
-
-            Label {
-                text: "(Weitere Optionen folgen …)"
-                opacity: 0.6
-                color: sysPalette.windowText
+                onToggled: autostartManager.setStartOnlyTray(checked)
             }
+        
 
             Item {
                 Layout.fillHeight: true
+            }
+
+            Button {
+                text: "Fenstergröße zurücksetzen - Test"
+                Layout.alignment: Qt.AlignLeft
+                onClicked: {
+                    mainWindow.resetToDefaultSize()
+                }
             }
 
             Button {
@@ -116,20 +162,18 @@ ApplicationWindow {
         }
     }
 
-    // 🔹 Hauptinhalt der App
     ColumnLayout {
         anchors.fill: parent
         spacing: 10
         anchors.margins: 10
 
-        // Zeile mit Eingabefeld + Zahnrad
         RowLayout {
             Layout.fillWidth: true
             spacing: 6
 
             TextField {
                 id: pathInput
-                placeholderText: "Pfad zur Datei oder zum Ordner eingeben..."
+                placeholderText: "Pfad eingeben oder Datei auf das Fenster ziehen..."
                 Layout.fillWidth: true
                 onAccepted: {
                     if (text.length > 0) {
@@ -167,6 +211,13 @@ ApplicationWindow {
             model: backend.favorites
             clip: true
 
+            // nur Scrollen per Mausrad/Scrollbar, nicht per Drag-Geste der Liste
+            interactive: false
+
+            // Einfüge-Info für Drag
+            property int  dragInsertIndex: -1
+            property bool dragging: false
+
             rightMargin: scroll.visible ? 25 : 0
 
             ScrollBar.vertical: ScrollBar {
@@ -175,78 +226,182 @@ ApplicationWindow {
                 visible: listView.count > 0 && listView.contentHeight > listView.height
             }
 
-            delegate: Rectangle {
-                width: parent.width - (scroll.visible ? 25 : 0)
+            delegate: Item {
+                id: rowItem
+                width: listView.width - (scroll.visible ? 25 : 0)
                 height: 36
-                color: "transparent"
 
-                RowLayout {
+                required property int index
+                required property string modelData
+
+                // für Drag-Erkennung
+                property bool wasDrag: false
+                property real pressY: 0
+
+                Rectangle {
                     anchors.fill: parent
-                    spacing: 8
 
-                    Label {
-                        text: "⬆"
-                        font.pixelSize: 14
-                        verticalAlignment: Text.AlignVCenter
-                        enabled: index > 0
-                        opacity: enabled ? 1.0 : 0.3
+                    // Hover-/Press-Highlight
+                    color: (rowMouse.containsMouse || rowMouse.pressed)
+                           ? (darkTheme ? "#404860" : "#d9e6ff")
+                           : "transparent"
 
-                        MouseArea {
-                            anchors.fill: parent
-                            enabled: parent.enabled
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: backend.moveFavorite(index, index - 1)
+                    border.width: rowMouse.wasDrag ? 1 : 0
+                    border.color: rowMouse.wasDrag
+                                   ? (darkTheme ? "#8fb1ff" : "#3355ff")
+                                   : "transparent"
+                    radius: 4
+
+                    // Einfüge-Linie oben im Ziel-Item
+                    Rectangle {
+                        id: insertLine
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        height: 2
+                        color: darkTheme ? "#5b8dff" : "#3366ff"
+
+                        // Linie nur, wenn wirklich Drag läuft und dieses Item Ziel ist
+                        visible: listView.dragging && listView.dragInsertIndex === index
+                    }
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.topMargin: 2
+                        spacing: 8
+
+                        Image {
+                            source: backend.iconPathForFile(modelData)
+                            width: 20
+                            height: 20
+                            fillMode: Image.PreserveAspectFit
+                            Layout.alignment: Qt.AlignVCenter
+                        }
+
+                        Text {
+                            text: modelData.split("/").pop()
+                            color: darkTheme ? "white" : "black"
+                            Layout.fillWidth: true
+                            elide: Text.ElideRight
+                            verticalAlignment: Text.AlignVCenter
+                        }
+
+                        Text {
+                            text: "❌"
+                            font.pixelSize: 16
+                            color: darkTheme ? "white" : "black"
+                            Layout.alignment: Qt.AlignVCenter
+
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+
+                                onClicked: backend.removeFavorite(modelData)
+
+                                // Klick fürs Löschen abfangen
+                                onPressed: {
+                                    mouse.accepted = true;
+                                }
+                            }
                         }
                     }
 
-                    Label {
-                        text: "⬇"
-                        font.pixelSize: 14
-                        verticalAlignment: Text.AlignVCenter
-                        enabled: index < listView.count - 1
-                        opacity: enabled ? 1.0 : 0.3
+                    // gesamte Zeile (ohne ❌): Klick = öffnen, Drag = verschieben
+                    MouseArea {
+                        id: rowMouse
+                        hoverEnabled: true
+                        cursorShape: wasDrag ? Qt.SizeAllCursor : Qt.PointingHandCursor
 
-                        MouseArea {
-                            anchors.fill: parent
-                            enabled: parent.enabled
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: backend.moveFavorite(index, index + 1)
+                        anchors {
+                            left: parent.left
+                            top: parent.top
+                            bottom: parent.bottom
+                            right: parent.right
+                            rightMargin: 30   // Platz fürs ❌
                         }
-                    }
 
-                    Image {
-                        source: backend.iconPathForFile(modelData)
-                        width: 20
-                        height: 20
-                        fillMode: Image.PreserveAspectFit
-                        Layout.alignment: Qt.AlignVCenter
-                    }
-
-                    Text {
-                        text: modelData.split("/").pop()
-                        color: darkTheme ? "white" : "black"
-                        Layout.fillWidth: true
-                        elide: Text.ElideRight
-                        verticalAlignment: Text.AlignVCenter
-
-                        MouseArea {
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: Qt.openUrlExternally(modelData)
+                        onPressed: {
+                            rowItem.pressY = mouse.y
+                            rowItem.wasDrag = false
+                            listView.dragging = false
+                            listView.dragInsertIndex = -1
                         }
-                    }
 
-                    Label {
-                        text: "❌"
-                        font.pixelSize: 16
-                        color: darkTheme ? "white" : "black"
-                        verticalAlignment: Text.AlignVCenter
-                        padding: 4
+                        onPositionChanged: {
+                            // Nur reagieren, wenn linke Maustaste gedrückt ist
+                            if (!(mouse.buttons & Qt.LeftButton))
+                                return;
 
-                        MouseArea {
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: backend.removeFavorite(modelData)
+                            // ab kleiner Schwelle als Drag werten
+                            if (!rowItem.wasDrag &&
+                                Math.abs(mouse.y - rowItem.pressY) > 4) {
+                                rowItem.wasDrag = true
+                                listView.dragging = true
+                            }
+
+                            if (rowItem.wasDrag) {
+                                var dy = mouse.y - rowItem.pressY
+                                var rowStep = rowItem.height + listView.spacing
+
+                                var deltaRows = Math.round(dy / rowStep)
+                                var candidate = index + deltaRows
+
+                                if (candidate < 0)
+                                    candidate = 0
+                                if (candidate > listView.count - 1)
+                                    candidate = listView.count - 1
+
+                                listView.dragInsertIndex = candidate
+                            }
+                        }
+
+                            onReleased: {
+                                if (rowItem.wasDrag) {
+                                    var targetIndex = listView.dragInsertIndex
+
+                                    // 🔹 Drag-Zustand zurücksetzen
+                                    rowItem.wasDrag = false
+                                    listView.dragging = false
+                                    listView.dragInsertIndex = -1
+
+                                    if (targetIndex < 0)
+                                        targetIndex = index
+
+                                    if (targetIndex !== index) {
+                                        backend.moveFavorite(index, targetIndex)
+                                    }
+
+                                } else {
+                                    // 🔹 normaler Klick → Favorit öffnen
+                                    Qt.openUrlExternally(modelData)
+
+                                    // 🔹 Fenster automatisch schließen, aber nur wenn ein Tray existiert
+                                    if (trayAvailable) {
+                                        mainWindow.hide()
+                                    }
+
+                                    // Zustand aufräumen
+                                    rowItem.wasDrag = false
+                                    listView.dragging = false
+                                    listView.dragInsertIndex = -1
+                                }
+                            }
+
+
+
+                        onCanceled: {
+                            rowItem.wasDrag = false
+                            listView.dragging = false
+                            listView.dragInsertIndex = -1
+                        }
+
+                        onExited: {
+                            if (!(mouse.buttons & Qt.LeftButton)) {
+                                rowItem.wasDrag = false
+                                listView.dragging = false
+                                listView.dragInsertIndex = -1
+                            }
                         }
                     }
                 }

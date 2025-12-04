@@ -7,6 +7,10 @@
 #include <QWindow>
 #include <QSharedMemory>
 
+// NEU:
+#include <QScreen>
+#include <QCursor>
+
 // NEU für Tray:
 #include <QSystemTrayIcon>
 #include <QMenu>
@@ -16,6 +20,49 @@
 #include "autostartmanager.h"
 
 #include <QFile>
+
+// NEU: Hilfsfunktion, um das Fenster über der unteren Leiste zu platzieren
+static void showPopupOverBottomPanel(QWindow *window)
+{
+    if (!window)
+        return;
+
+    int popupWidth  = window->width()  > 0 ? window->width()  : 250;
+    int popupHeight = window->height() > 0 ? window->height() : 400;
+
+    QPoint clickPos = QCursor::pos();
+
+    QScreen *screen = QGuiApplication::screenAt(clickPos);
+    if (!screen)
+        screen = QGuiApplication::primaryScreen();
+
+    // kompletter Screen + der nutzbare Bereich ohne Panel
+    QRect screenGeo = screen->geometry();
+    QRect availGeo  = screen->availableGeometry();
+
+    const int sideMargin    = 5;   // links/rechts
+    const int gapAbovePanel = 60;  // "5 mm Abstand" – kannst du nach Gefühl anpassen
+
+    // X: an der Maus zentrieren, aber im sichtbaren Bereich bleiben
+    int x = clickPos.x() - popupWidth / 2;
+    if (x < availGeo.left() + sideMargin)
+        x = availGeo.left() + sideMargin;
+    if (x + popupWidth > availGeo.right() - sideMargin)
+        x = availGeo.right() - sideMargin - popupWidth;
+
+    // Y: an der Oberkante der Taskleiste ausrichten (availGeo.bottom())
+    //    und ein Stück nach oben schieben, damit es "schwebt"
+    int y = availGeo.bottom() - popupHeight - gapAbovePanel;
+
+    window->resize(popupWidth, popupHeight);
+    window->setX(x);
+    window->setY(y);
+
+    window->show();
+    window->raise();
+    window->requestActivate();
+}
+
 
 int main(int argc, char *argv[])
 {
@@ -43,8 +90,6 @@ int main(int argc, char *argv[])
     app.setWindowIcon(appIcon);
 
     // 🔹 Icon-Theme-Verhalten:
-    //    - Standard: das vom Desktop gesetzte Theme verwenden (Mint-Y, Breeze, …)
-    //    - Nur falls GAR KEIN Theme gesetzt ist (Minimal-Umgebung), auf "hicolor" zurückfallen.
     QString currentTheme = QIcon::themeName();
     if (currentTheme.isEmpty()) {
         QIcon::setThemeName("hicolor");
@@ -62,8 +107,6 @@ int main(int argc, char *argv[])
     }
 
     // 🔹 Verhalten beim letzten Fenster:
-    //    - mit Tray: App weiterlaufen lassen
-    //    - ohne Tray: ganz normal beenden
     if (trayAvailable) {
         app.setQuitOnLastWindowClosed(false);
     } else {
@@ -99,6 +142,16 @@ int main(int argc, char *argv[])
     QWindow *window = qobject_cast<QWindow *>(topLevel);
     if (window) {
         window->setIcon(appIcon);
+
+        // NEU: Standardverhalten beim Start
+        // - Wenn kein Tray vorhanden -> Fenster normal zeigen
+        // - Wenn aus Autostart und "nur Tray" -> NICHT zeigen
+        // - Sonst (manuell gestartet) -> Fenster zeigen
+        if (!trayAvailable
+            || !startedFromAutostart
+            || !autostartManager.startOnlyTray()) {
+            window->show();
+        }
     }
 
     // 🔹 Nur Tray-Icon und Menü anlegen, wenn ein System-Tray verfügbar ist
@@ -132,49 +185,52 @@ int main(int argc, char *argv[])
             && autostartManager.startOnlyTray()
             && window) {
             window->hide();
-            }
+        }
 
-            // Tray-Icon Klick: Fenster ein-/ausblenden
-            QObject::connect(trayIcon, &QSystemTrayIcon::activated,
-                             &app, [window](QSystemTrayIcon::ActivationReason reason) {
-                                 if (!window)
-                                     return;
+        // Tray-Icon Klick: Fenster ein-/ausblenden, mit Popup über der Leiste
+      QObject::connect(trayIcon, &QSystemTrayIcon::activated,
+                 &app, [window](QSystemTrayIcon::ActivationReason reason) {
+    if (!window)
+        return;
 
-                                 if (reason == QSystemTrayIcon::Trigger ||
-                                     reason == QSystemTrayIcon::DoubleClick) {
+    if (reason == QSystemTrayIcon::Trigger ||
+        reason == QSystemTrayIcon::DoubleClick) {
 
-                                     if (window->isVisible()) {
-                                         window->hide();
-                                     } else {
-                                         window->show();
-                                         window->raise();
-                                         window->requestActivate();
-                                     }
-                                     }
-                             });
+        Qt::WindowStates state = window->windowState();
 
-            // "Öffnen" im Menü
-            QObject::connect(showAction, &QAction::triggered, [window]() {
-                if (!window)
-                    return;
-                window->show();
-                window->raise();
-                window->requestActivate();
-            });
+        // 🔹 Fall 1: Fenster ist minimiert → Zustand zurücksetzen + schön platzieren
+        if (state.testFlag(Qt::WindowMinimized)) {
+            window->setWindowState(Qt::WindowNoState);
+            showPopupOverBottomPanel(window);
+            return;
+        }
 
-            // "Einstellungen..." im Menü → nur Settings-Fenster öffnen
-            QObject::connect(settingsAction, &QAction::triggered, [&engine]() {
-                if (engine.rootObjects().isEmpty())
-                    return;
+        // 🔹 Fall 2: Fenster ist unsichtbar → anzeigen
+        if (!window->isVisible()) {
+            showPopupOverBottomPanel(window);
+            return;
+        }
 
-                QObject *rootObject = engine.rootObjects().first();
-                QMetaObject::invokeMethod(rootObject, "openSettings",
-                                          Qt::QueuedConnection);
-            });
+        // 🔹 Fall 3: Fenster ist sichtbar (und nicht minimiert) → verstecken
+        window->hide();
+    }
+});
 
-            // "Beenden" im Menü
-            QObject::connect(quitAction, &QAction::triggered,
-                             &app, &QCoreApplication::quit);
+
+
+        // "Einstellungen..." im Menü → nur Settings-Fenster öffnen
+        QObject::connect(settingsAction, &QAction::triggered, [&engine]() {
+            if (engine.rootObjects().isEmpty())
+                return;
+
+            QObject *rootObject = engine.rootObjects().first();
+            QMetaObject::invokeMethod(rootObject, "openSettings",
+                                      Qt::QueuedConnection);
+        });
+
+        // "Beenden" im Menü
+        QObject::connect(quitAction, &QAction::triggered,
+                         &app, &QCoreApplication::quit);
     }
 
     return app.exec();
