@@ -36,12 +36,9 @@ static void showPopupOverBottomPanel(QWindow *window)
     if (!screen)
         screen = QGuiApplication::primaryScreen();
 
-    // kompletter Screen + der nutzbare Bereich ohne Panel
-    QRect screenGeo = screen->geometry();
     QRect availGeo  = screen->availableGeometry();
 
-    const int sideMargin    = 5;   // links/rechts
-    const int gapAbovePanel = 60;  // "5 mm Abstand" – kannst du nach Gefühl anpassen
+    const int sideMargin = 5;   // links/rechts
 
     // X: an der Maus zentrieren, aber im sichtbaren Bereich bleiben
     int x = clickPos.x() - popupWidth / 2;
@@ -50,9 +47,8 @@ static void showPopupOverBottomPanel(QWindow *window)
     if (x + popupWidth > availGeo.right() - sideMargin)
         x = availGeo.right() - sideMargin - popupWidth;
 
-    // Y: an der Oberkante der Taskleiste ausrichten (availGeo.bottom())
-    //    und ein Stück nach oben schieben, damit es "schwebt"
-    int y = availGeo.bottom() - popupHeight - gapAbovePanel;
+    // Y: direkt an der Oberkante der Taskleiste (kein Abstand mehr)
+    int y = availGeo.bottom() - popupHeight;
 
     window->resize(popupWidth, popupHeight);
     window->setX(x);
