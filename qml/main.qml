@@ -10,7 +10,19 @@ ApplicationWindow {
     height: 400
     title: "FavList"
 
-    flags: Qt.Tool | Qt.WindowCloseButtonHint | Qt.WindowStaysOnTopHint
+        // Fensterverhalten je nach Umgebung:
+    // - Ohne Tray  ODER unter GNOME/Ubuntu: normales Fenster
+    // - Mit Tray und nicht GNOME: kleines Tool-Popup über der Leiste
+    flags: (!trayAvailable || isGnomeLike)
+           ? (Qt.Window
+              | Qt.WindowMinimizeButtonHint
+              | Qt.WindowMaximizeButtonHint
+              | Qt.WindowCloseButtonHint)
+           : (Qt.Tool
+              | Qt.WindowCloseButtonHint
+              | Qt.WindowStaysOnTopHint)
+
+
 
     // 🔹 Standardgröße merken
     property int defaultWidth: 250
@@ -147,7 +159,7 @@ ApplicationWindow {
             }
 
             Button {
-                text: "Fenstergröße zurücksetzen - Test"
+                text: "Fenstergröße zurücksetzen"
                 Layout.alignment: Qt.AlignLeft
                 onClicked: {
                     mainWindow.resetToDefaultSize()

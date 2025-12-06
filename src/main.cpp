@@ -7,11 +7,9 @@
 #include <QWindow>
 #include <QSharedMemory>
 
-// NEU:
 #include <QScreen>
 #include <QCursor>
 
-// NEU für Tray:
 #include <QSystemTrayIcon>
 #include <QMenu>
 #include <QAction>
@@ -21,7 +19,7 @@
 
 #include <QFile>
 
-// NEU: Hilfsfunktion, um das Fenster über der unteren Leiste zu platzieren
+// Hilfsfunktion, um das Fenster automatisch an Leiste zu platzieren
 static void showPopupOverBottomPanel(QWindow *window)
 {
     if (!window)
@@ -36,6 +34,7 @@ static void showPopupOverBottomPanel(QWindow *window)
     if (!screen)
         screen = QGuiApplication::primaryScreen();
 
+    QRect screenGeo = screen->geometry();
     QRect availGeo  = screen->availableGeometry();
 
     const int sideMargin = 5;   // links/rechts
@@ -47,8 +46,30 @@ static void showPopupOverBottomPanel(QWindow *window)
     if (x + popupWidth > availGeo.right() - sideMargin)
         x = availGeo.right() - sideMargin - popupWidth;
 
-    // Y: direkt an der Oberkante der Taskleiste (kein Abstand mehr)
-    int y = availGeo.bottom() - popupHeight;
+    // 🔍 herausfinden, wo ein Panel reserviert
+    bool panelTop    = availGeo.top()    > screenGeo.top();
+    bool panelBottom = availGeo.bottom() < screenGeo.bottom();
+    bool panelLeft   = availGeo.left()   > screenGeo.left();
+    bool panelRight  = availGeo.right()  < screenGeo.right();
+
+    int y = 0;
+
+    if (panelBottom) {
+        // KDE/Cinnamon/Mint: Panel unten → Fenster direkt darüber
+        y = availGeo.bottom() - popupHeight;
+    } else if (panelTop) {
+        // Ubuntu/GNOME: Panel oben → Fenster direkt darunter
+        y = availGeo.top();
+    } else {
+        // kein klares Panel oben/unten → nahe am Mausklick platzieren
+        y = clickPos.y() - popupHeight / 2;
+        if (y < availGeo.top())
+            y = availGeo.top();
+        if (y + popupHeight > availGeo.bottom())
+            y = availGeo.bottom() - popupHeight;
+    }
+
+    // (links/rechts-Panel ignorieren wir hier bewusst – X ist schon an der Maus orientiert)
 
     window->resize(popupWidth, popupHeight);
     window->setX(x);
@@ -59,19 +80,43 @@ static void showPopupOverBottomPanel(QWindow *window)
     window->requestActivate();
 }
 
+// Gemeinsame Funktion: Hauptfenster anzeigen oder nach vorne holen
+static void showOrActivateMainWindow(QWindow *window)
+{
+    if (!window)
+        return;
+
+    Qt::WindowStates state = window->windowState();
+
+    // Wenn minimiert → wiederherstellen
+    if (state.testFlag(Qt::WindowMinimized)) {
+        window->setWindowState(Qt::WindowNoState);
+    }
+
+    // Wenn nicht sichtbar → als Popup an der Leiste anzeigen
+    if (!window->isVisible()) {
+        showPopupOverBottomPanel(window);
+        return;
+    }
+
+    // Wenn sichtbar → nur nach vorne holen, NICHT verstecken
+    window->raise();
+    window->requestActivate();
+    window->setVisible(true);   // zur Sicherheit
+}
 
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
 
-    // 🔹 Prüfen, ob wir mit --autostart gestartet wurden
+    // Prüfen, ob wir mit --autostart gestartet wurden
     bool startedFromAutostart = false;
     QStringList args = app.arguments();
     if (args.contains("--autostart")) {
         startedFromAutostart = true;
     }
 
-    // 🔹 Single-Instance
+    // Single-Instance
     QSharedMemory sharedMemory("FavListSingleInstanceKey");
     if (!sharedMemory.create(1)) {
         qDebug() << "FavList läuft bereits. Beende zweite Instanz.";
@@ -85,7 +130,7 @@ int main(int argc, char *argv[])
     QIcon appIcon(":/resources/icons/appicon.png");
     app.setWindowIcon(appIcon);
 
-    // 🔹 Icon-Theme-Verhalten:
+    // Icon-Theme-Verhalten
     QString currentTheme = QIcon::themeName();
     if (currentTheme.isEmpty()) {
         QIcon::setThemeName("hicolor");
@@ -94,15 +139,23 @@ int main(int argc, char *argv[])
         qDebug() << "System-Icon-Theme wird verwendet:" << currentTheme;
     }
 
-    // 🔹 Prüfen, ob überhaupt ein System-Tray verfügbar ist
+    // Prüfen, ob System-Tray verfügbar ist
     bool trayAvailable = QSystemTrayIcon::isSystemTrayAvailable();
-    /*trayAvailable = false;   // <<< TEST-MODUS: so tun, als gäbe es keinen Tray*/
+    /*trayAvailable = false;   // TEST: so tun, als gäbe es keinen Tray */
+
+    // Prüfen, ob wir unter GNOME/Ubuntu laufen
+    QString desktopEnv = QString::fromLocal8Bit(qgetenv("XDG_CURRENT_DESKTOP"));
+    qDebug() << "XDG_CURRENT_DESKTOP =" << desktopEnv;
+
+    bool isGnomeLike =
+            desktopEnv.contains("GNOME", Qt::CaseInsensitive) ||
+            desktopEnv.contains("ubuntu", Qt::CaseInsensitive);
 
     if (!trayAvailable) {
         qWarning() << "System Tray nicht verfügbar!";
     }
 
-    // 🔹 Verhalten beim letzten Fenster:
+    // Verhalten beim letzten Fenster
     if (trayAvailable) {
         app.setQuitOnLastWindowClosed(false);
     } else {
@@ -111,15 +164,16 @@ int main(int argc, char *argv[])
 
     QQmlApplicationEngine engine;
 
-    // 🔹 C++-Objekte anlegen
+    // C++-Objekte
     AutostartManager autostartManager;
     FavoriteBackend backend;
 
-    // 🔹 Kontext-Properties für QML
+    // Kontext-Properties
     engine.rootContext()->setContextProperty("autostartManager", &autostartManager);
     engine.rootContext()->setContextProperty("backend", &backend);
     engine.rootContext()->setContextProperty("trayAvailable", trayAvailable);
     engine.rootContext()->setContextProperty("startedFromAutostart", startedFromAutostart);
+    engine.rootContext()->setContextProperty("isGnomeLike", isGnomeLike);
 
     QString qmlPath = QDir::cleanPath(
         QCoreApplication::applicationDirPath() + "/../qml/main.qml"
@@ -139,10 +193,10 @@ int main(int argc, char *argv[])
     if (window) {
         window->setIcon(appIcon);
 
-        // NEU: Standardverhalten beim Start
-        // - Wenn kein Tray vorhanden -> Fenster normal zeigen
-        // - Wenn aus Autostart und "nur Tray" -> NICHT zeigen
-        // - Sonst (manuell gestartet) -> Fenster zeigen
+        // Startverhalten
+        // - kein Tray -> Fenster zeigen
+        // - Autostart + "nur Tray" -> NICHT zeigen
+        // - sonst -> Fenster zeigen
         if (!trayAvailable
             || !startedFromAutostart
             || !autostartManager.startOnlyTray()) {
@@ -150,7 +204,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    // 🔹 Nur Tray-Icon und Menü anlegen, wenn ein System-Tray verfügbar ist
+    // Tray-Icon & Menü
     QSystemTrayIcon *trayIcon = nullptr;
     QMenu *trayMenu = nullptr;
 
@@ -161,60 +215,45 @@ int main(int argc, char *argv[])
         trayIcon->setToolTip("Favorite");
 
         trayMenu = new QMenu();
-        QAction *showAction = new QAction("Öffnen", trayMenu);
-        QAction *settingsAction = new QAction("Einstellungen...", trayMenu);
-        QAction *quitAction = new QAction("Beenden", trayMenu);
+        QAction *showAction      = new QAction("Öffnen", trayMenu);
+        QAction *settingsAction  = new QAction("Einstellungen...", trayMenu);
+        QAction *quitAction      = new QAction("Beenden", trayMenu);
 
-        // Reihenfolge im Menü
         trayMenu->addAction(showAction);
         trayMenu->addAction(settingsAction);
         trayMenu->addSeparator();
         trayMenu->addAction(quitAction);
 
+        // Kontextmenü dem Tray-Icon zuweisen (für Rechtsklick)
         trayIcon->setContextMenu(trayMenu);
         trayIcon->show();
 
-        // ✅ NUR Tray-Icon anzeigen, wenn:
-        //    - aus Autostart gestartet
-        //    - und "nur Tray" aktiviert
+        // Nur Tray-Icon anzeigen, wenn Autostart + "nur Tray"
         if (startedFromAutostart
             && autostartManager.startOnlyTray()
             && window) {
             window->hide();
         }
 
-        // Tray-Icon Klick: Fenster ein-/ausblenden, mit Popup über der Leiste
-      QObject::connect(trayIcon, &QSystemTrayIcon::activated,
-                 &app, [window](QSystemTrayIcon::ActivationReason reason) {
-    if (!window)
-        return;
+        // Menüpunkt "Öffnen"
+        QObject::connect(showAction, &QAction::triggered, &app, [window]() {
+            showOrActivateMainWindow(window);
+        });
 
-    if (reason == QSystemTrayIcon::Trigger ||
-        reason == QSystemTrayIcon::DoubleClick) {
+        // Klick auf das Tray-Icon
+        QObject::connect(trayIcon, &QSystemTrayIcon::activated,
+                         &app, [window](QSystemTrayIcon::ActivationReason reason) {
+            switch (reason) {
+            case QSystemTrayIcon::Trigger:        // einfacher Linksklick
+            case QSystemTrayIcon::DoubleClick:    // Doppelklick
+                showOrActivateMainWindow(window);
+                break;
+            default:
+                break;
+            }
+        });
 
-        Qt::WindowStates state = window->windowState();
-
-        // 🔹 Fall 1: Fenster ist minimiert → Zustand zurücksetzen + schön platzieren
-        if (state.testFlag(Qt::WindowMinimized)) {
-            window->setWindowState(Qt::WindowNoState);
-            showPopupOverBottomPanel(window);
-            return;
-        }
-
-        // 🔹 Fall 2: Fenster ist unsichtbar → anzeigen
-        if (!window->isVisible()) {
-            showPopupOverBottomPanel(window);
-            return;
-        }
-
-        // 🔹 Fall 3: Fenster ist sichtbar (und nicht minimiert) → verstecken
-        window->hide();
-    }
-});
-
-
-
-        // "Einstellungen..." im Menü → nur Settings-Fenster öffnen
+        // "Einstellungen..." im Menü
         QObject::connect(settingsAction, &QAction::triggered, [&engine]() {
             if (engine.rootObjects().isEmpty())
                 return;
@@ -224,7 +263,7 @@ int main(int argc, char *argv[])
                                       Qt::QueuedConnection);
         });
 
-        // "Beenden" im Menü
+        // "Beenden"
         QObject::connect(quitAction, &QAction::triggered,
                          &app, &QCoreApplication::quit);
     }
