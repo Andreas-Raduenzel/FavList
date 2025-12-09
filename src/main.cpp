@@ -212,7 +212,7 @@ int main(int argc, char *argv[])
 
         trayIcon = new QSystemTrayIcon(&app);
         trayIcon->setIcon(appIcon);
-        trayIcon->setToolTip("Favorite");
+        trayIcon->setToolTip("FavList");
 
         trayMenu = new QMenu();
         QAction *showAction      = new QAction("Öffnen", trayMenu);
@@ -242,26 +242,27 @@ int main(int argc, char *argv[])
 
         // Klick auf das Tray-Icon
         QObject::connect(trayIcon, &QSystemTrayIcon::activated,
-                         &app, [window](QSystemTrayIcon::ActivationReason reason) {
+                        &app, [window](QSystemTrayIcon::ActivationReason reason) {
             switch (reason) {
             case QSystemTrayIcon::Trigger:        // einfacher Linksklick
-            case QSystemTrayIcon::DoubleClick:    // Doppelklick
-                showOrActivateMainWindow(window);
+            case QSystemTrayIcon::DoubleClick: {  // Doppelklick
+                if (!window)
+                    return;
+
+                if (window->isVisible()) {
+                    // Fenster ist sichtbar → verstecken
+                    window->hide();
+                } else {
+                    // Fenster ist unsichtbar → mit deiner alten Logik öffnen
+                    showOrActivateMainWindow(window);
+                }
                 break;
+            }
             default:
                 break;
             }
         });
 
-        // "Einstellungen..." im Menü
-        QObject::connect(settingsAction, &QAction::triggered, [&engine]() {
-            if (engine.rootObjects().isEmpty())
-                return;
-
-            QObject *rootObject = engine.rootObjects().first();
-            QMetaObject::invokeMethod(rootObject, "openSettings",
-                                      Qt::QueuedConnection);
-        });
 
         // "Beenden"
         QObject::connect(quitAction, &QAction::triggered,

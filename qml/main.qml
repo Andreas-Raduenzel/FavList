@@ -10,7 +10,7 @@ ApplicationWindow {
     height: 400
     title: "FavList"
 
-        // Fensterverhalten je nach Umgebung:
+    // Fensterverhalten je nach Umgebung:
     // - Ohne Tray  ODER unter GNOME/Ubuntu: normales Fenster
     // - Mit Tray und nicht GNOME: kleines Tool-Popup über der Leiste
     flags: (!trayAvailable || isGnomeLike)
@@ -22,8 +22,6 @@ ApplicationWindow {
               | Qt.WindowCloseButtonHint
               | Qt.WindowStaysOnTopHint)
 
-
-
     // 🔹 Standardgröße merken
     property int defaultWidth: 250
     property int defaultHeight: 400
@@ -33,11 +31,47 @@ ApplicationWindow {
         width = defaultWidth
         height = defaultHeight
     }
+    
+    // 🔹 Funktion, um den aktuellen Pfad im Eingabefeld hinzuzufügen
+    function addCurrentPath() {
+        if (pathInput.text.length > 0) {
+            backend.addFavorite(pathInput.text)
+            pathInput.text = ""
+        }
+    }
+    
 
 
-
-    // Dark-/Light-Theme-Erkennung
+    // Dark-/Light-Theme-Erkennung vom System
     property bool darkTheme: Qt.styleHints.colorScheme === Qt.Dark
+
+    // Zentrales Theme-Objekt für alle Farben
+    QtObject {
+        id: theme
+
+        property bool dark: darkTheme
+
+        // Grundfarben
+        property color window:        dark ? "#252525" : "#ffffff"
+        property color text:          dark ? "#f0f0f0" : "#202020"
+        property color textSecondary: dark ? "#c0c0c0" : "#404040"
+
+        // Rahmen / Hervorhebungen
+        property color borderStrong:  dark ? "#ffffff" : "#000000"
+
+        // Drag-Overlay
+        property color dragOverlay:   dark ? "#40ffffff" : "#40000000"
+
+        // Liste / Hover / Auswahl
+        property color itemHover:     dark ? "#404860" : "#d9e6ff"
+        property color itemBorder:    dark ? "#8fb1ff" : "#3355ff"
+
+        // Einfüge-Linie
+        property color insertLine:    dark ? "#5b8dff" : "#3366ff"
+    }
+
+    // Fensterhintergrund nach Theme
+    color: theme.window
 
     function toggleVisibility() {
         if (visible) {
@@ -69,24 +103,25 @@ ApplicationWindow {
         onActivated: mainWindow.openSettings()
     }
 
-    SystemPalette {
-        id: sysPalette
-        colorGroup: SystemPalette.Active
-    }
+    // SystemPalette entfernen – wir nutzen unser eigenes Theme
+    // SystemPalette {
+    //     id: sysPalette
+    //     colorGroup: SystemPalette.Active
+    // }
 
     Rectangle {
         id: dragOverlay
         anchors.fill: parent
-        color: darkTheme ? "#40ffffff" : "#40000000"
+        color: theme.dragOverlay
         visible: dropArea.containsDrag
         z: 98
         border.width: 2
-        border.color: darkTheme ? "white" : "black"
+        border.color: theme.borderStrong
 
         Text {
             anchors.centerIn: parent
             text: "Datei hierher ziehen, um sie zur Liste hinzuzufügen"
-            color: darkTheme ? "white" : "black"
+            color: theme.text
             wrapMode: Text.WordWrap
             horizontalAlignment: Text.AlignHCenter
             width: parent.width * 0.8
@@ -124,7 +159,8 @@ ApplicationWindow {
         flags: Qt.Dialog | Qt.WindowCloseButtonHint
         visible: false
 
-        color: sysPalette.window
+        // statt sysPalette: eigenes Theme
+        color: theme.window
 
         ColumnLayout {
             anchors.fill: parent
@@ -152,7 +188,6 @@ ApplicationWindow {
 
                 onToggled: autostartManager.setStartOnlyTray(checked)
             }
-        
 
             Item {
                 Layout.fillHeight: true
@@ -187,33 +222,78 @@ ApplicationWindow {
                 id: pathInput
                 placeholderText: "Pfad eingeben oder Datei auf das Fenster ziehen..."
                 Layout.fillWidth: true
+
+                color: theme.text
+                placeholderTextColor: theme.textSecondary
+
+                background: Rectangle {
+                    radius: 4
+                    border.width: 1
+                    border.color: theme.textSecondary
+                    color: theme.window
+                }
+
                 onAccepted: {
-                    if (text.length > 0) {
-                        backend.addFavorite(text)
-                        text = ""
-                    }
+                    mainWindow.addCurrentPath()
                 }
             }
 
+            // Kleiner Button direkt neben dem Textfeld
+            Button {
+                id: quickAddButton
+                Layout.alignment: Qt.AlignVCenter
+                Layout.preferredWidth: 32
+                Layout.preferredHeight: 28
+
+                contentItem: Text {
+                    // hier kannst du auch "+" statt "↵" nehmen
+                    text: "↵"
+                    color: theme.text
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    font.pixelSize: 16
+                }
+
+                background: Rectangle {
+                    radius: 4
+                    border.width: 1
+                    border.color: theme.textSecondary
+                    color: quickAddButton.down
+                        ? theme.itemBorder
+                        : quickAddButton.hovered
+                            ? theme.itemHover
+                            : (theme.dark ? "#404040" : "#e0e0e0")
+                }
+
+                onClicked: mainWindow.addCurrentPath()
+            }
+
             ToolButton {
-                text: "⚙"
+                id: settingsButton
                 Accessible.name: "Einstellungen"
                 onClicked: mainWindow.openSettings()
                 ToolTip.visible: hovered
                 ToolTip.text: "Einstellungen öffnen"
-            }
-        }
 
-        Button {
-            text: "Hinzufügen"
-            Layout.fillWidth: true
-            onClicked: {
-                if (pathInput.text.length > 0) {
-                    backend.addFavorite(pathInput.text)
-                    pathInput.text = ""
+                contentItem: Text {
+                    text: "⚙"
+                    color: theme.text
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    font.pixelSize: 16
+                }
+
+                background: Rectangle {
+                    implicitWidth: 24
+                    implicitHeight: 24
+                    radius: 4
+                    color: settingsButton.down || settingsButton.hovered
+                        ? theme.itemHover
+                        : "transparent"
                 }
             }
         }
+
 
         ListView {
             id: listView
@@ -243,8 +323,10 @@ ApplicationWindow {
                 width: listView.width - (scroll.visible ? 25 : 0)
                 height: 36
 
-                required property int index
-                required property string modelData
+                // index und modelData liefert ListView automatisch,
+                // "required property" ist hier nicht nötig und kann sogar stören
+                // required property int index
+                // required property string modelData
 
                 // für Drag-Erkennung
                 property bool wasDrag: false
@@ -255,12 +337,12 @@ ApplicationWindow {
 
                     // Hover-/Press-Highlight
                     color: (rowMouse.containsMouse || rowMouse.pressed)
-                           ? (darkTheme ? "#404860" : "#d9e6ff")
+                           ? theme.itemHover
                            : "transparent"
 
                     border.width: rowMouse.wasDrag ? 1 : 0
                     border.color: rowMouse.wasDrag
-                                   ? (darkTheme ? "#8fb1ff" : "#3355ff")
+                                   ? theme.itemBorder
                                    : "transparent"
                     radius: 4
 
@@ -271,7 +353,7 @@ ApplicationWindow {
                         anchors.right: parent.right
                         anchors.top: parent.top
                         height: 2
-                        color: darkTheme ? "#5b8dff" : "#3366ff"
+                        color: theme.insertLine
 
                         // Linie nur, wenn wirklich Drag läuft und dieses Item Ziel ist
                         visible: listView.dragging && listView.dragInsertIndex === index
@@ -292,7 +374,7 @@ ApplicationWindow {
 
                         Text {
                             text: modelData.split("/").pop()
-                            color: darkTheme ? "white" : "black"
+                            color: theme.text
                             Layout.fillWidth: true
                             elide: Text.ElideRight
                             verticalAlignment: Text.AlignVCenter
@@ -301,7 +383,7 @@ ApplicationWindow {
                         Text {
                             text: "❌"
                             font.pixelSize: 16
-                            color: darkTheme ? "white" : "black"
+                            color: theme.text
                             Layout.alignment: Qt.AlignVCenter
 
                             MouseArea {
@@ -368,39 +450,37 @@ ApplicationWindow {
                             }
                         }
 
-                            onReleased: {
-                                if (rowItem.wasDrag) {
-                                    var targetIndex = listView.dragInsertIndex
+                        onReleased: {
+                            if (rowItem.wasDrag) {
+                                var targetIndex = listView.dragInsertIndex
 
-                                    // 🔹 Drag-Zustand zurücksetzen
-                                    rowItem.wasDrag = false
-                                    listView.dragging = false
-                                    listView.dragInsertIndex = -1
+                                // 🔹 Drag-Zustand zurücksetzen
+                                rowItem.wasDrag = false
+                                listView.dragging = false
+                                listView.dragInsertIndex = -1
 
-                                    if (targetIndex < 0)
-                                        targetIndex = index
+                                if (targetIndex < 0)
+                                    targetIndex = index
 
-                                    if (targetIndex !== index) {
-                                        backend.moveFavorite(index, targetIndex)
-                                    }
-
-                                } else {
-                                    // 🔹 normaler Klick → Favorit öffnen
-                                    Qt.openUrlExternally(modelData)
-
-                                    // 🔹 Fenster automatisch schließen, aber nur wenn ein Tray existiert
-                                    if (trayAvailable) {
-                                        mainWindow.hide()
-                                    }
-
-                                    // Zustand aufräumen
-                                    rowItem.wasDrag = false
-                                    listView.dragging = false
-                                    listView.dragInsertIndex = -1
+                                if (targetIndex !== index) {
+                                    backend.moveFavorite(index, targetIndex)
                                 }
+
+                            } else {
+                                // 🔹 normaler Klick → Favorit öffnen
+                                Qt.openUrlExternally(modelData)
+
+                                // 🔹 Fenster automatisch schließen, aber nur wenn ein Tray existiert
+                                if (trayAvailable) {
+                                    mainWindow.hide()
+                                }
+
+                                // Zustand aufräumen
+                                rowItem.wasDrag = false
+                                listView.dragging = false
+                                listView.dragInsertIndex = -1
                             }
-
-
+                        }
 
                         onCanceled: {
                             rowItem.wasDrag = false

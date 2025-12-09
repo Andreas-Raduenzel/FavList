@@ -90,17 +90,44 @@ QString FavoriteBackend::iconPathForFile(const QString &path)
 {
     QMimeDatabase db;
     QMimeType type = db.mimeTypeForFile(path);
-    QIcon icon = QIcon::fromTheme(type.iconName());
 
+    // 1️⃣ zuerst den spezifischen Icon-Namen holen, z.B. "image-jpeg"
+    QString iconName = type.iconName();
+
+    // 2️⃣ Falls es dafür kein Icon im Theme gibt → generischen Namen nehmen, z.B. "image"
+    if (!QIcon::hasThemeIcon(iconName)) {
+        QString generic = type.genericIconName();   // "image", "video", "text", ...
+        if (!generic.isEmpty() && QIcon::hasThemeIcon(generic)) {
+            iconName = generic;
+        } else {
+            // 3️⃣ Fallbacks, falls gar nichts geht
+            if (QIcon::hasThemeIcon("text-plain"))
+                iconName = "text-plain";
+            else if (QIcon::hasThemeIcon("unknown"))
+                iconName = "unknown";
+            else
+                return "";
+        }
+    }
+
+    QIcon icon = QIcon::fromTheme(iconName);
     if (!icon.isNull()) {
-        QString tmpPath = QStandardPaths::writableLocation(QStandardPaths::TempLocation)
-                          + "/icon_" + QFileInfo(path).suffix() + ".png";
+        // Optional etwas eindeutigere Dateinamen, damit PNG/JPG nicht alle die gleiche temp-Datei nutzen
+        QString baseName = QFileInfo(path).completeBaseName();
+        if (baseName.isEmpty())
+            baseName = QFileInfo(path).fileName();
+
+        QString tmpDir = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
+        QDir().mkpath(tmpDir); // sicherstellen, dass es den Ordner gibt
+
+        QString tmpPath = tmpDir + "/favlist_icon_" + baseName + ".png";
         icon.pixmap(32, 32).save(tmpPath);
         return tmpPath;
     }
 
     return "";
 }
+
 
 void FavoriteBackend::moveFavorite(int from, int to)
 {

@@ -40,3 +40,42 @@ Stabilere, optisch konsistente Einstellungen; sauberer Reset-Button;
 keine Konflikte mit Breeze-Dekorationen; keine Frameless-Seiteneffekte.
 Das Fenster behält nun die KDE-typische Erscheinung und arbeitet dennoch
 als Tray-Popup mit allen bisherigen Vorteilen.
+### [2025-12-09] – UI: Theme-System überarbeitet, Dark/Light Fix, Add-Button optimiert
+
+UI & Theme-Verbesserungen
+
+- Zentrales Theme-Objekt eingeführt:
+  - Einheitliche Farben für Dark/Light Mode
+  - Keine Abhängigkeit mehr von SystemPalette
+  - Bessere Lesbarkeit unter KDE, GNOME und Ubuntu
+
+- Dark/Light-Mode:
+  - Farbe wird korrekt aus Qt.styleHints.colorScheme übernommen
+  - Theme steuert nun Fensterhintergrund, Textfarben, Hover-Farben usw.
+  - GNOME/Ubuntu zeigen jetzt lesbare Inhalte im Dunkelmodus
+
+- Add-Button überarbeitet:
+  - Großer "Hinzufügen"-Button entfernt
+  - Kleiner Button ("↵" bzw. "+") wurde neben dem Textfeld ergänzt
+  - Enter-Taste im Textfeld fügt nun ebenfalls hinzu
+  - Neue Funktion addCurrentPath() eingeführt
+
+- Settings-Button (Zahnrad):
+  - Icon-Farbe wird nun aus Theme übernommen
+  - Bleibt im Dark-Mode sichtbar, auch ohne Hover
+
+- Placeholder-Text im TextField:
+  - erhält nun theme.textSecondary, damit im Dark-Mode sichtbar
+
+- Button-Styling:
+  - Hintergrundfarben, Ränder und Hover-Effekte vereinheitlicht
+  - Optik wirkt kompakter und moderner
+
+- Entfernte Elemente:
+  - Alter Button "Hinzufügen" unterhalb der Liste wurde komplett entfernt
+
+- Diverse Aufräumarbeiten:
+  - SystemPalette entfernt
+  - Doppeltes Farb-Handling aus QML bereinigt
+  - required property in ListView Delegate entfernt
+
