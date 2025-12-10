@@ -205,69 +205,93 @@ int main(int argc, char *argv[])
     }
 
     // Tray-Icon & Menü
-    QSystemTrayIcon *trayIcon = nullptr;
-    QMenu *trayMenu = nullptr;
+QSystemTrayIcon *trayIcon = nullptr;
+QMenu *trayMenu = nullptr;
 
-    if (trayAvailable) {
+if (trayAvailable) {
 
-        trayIcon = new QSystemTrayIcon(&app);
-        trayIcon->setIcon(appIcon);
-        trayIcon->setToolTip("FavList");
+    trayIcon = new QSystemTrayIcon(&app);
+    trayIcon->setIcon(appIcon);
+    trayIcon->setToolTip("FavList");
 
-        trayMenu = new QMenu();
-        QAction *showAction      = new QAction("Öffnen", trayMenu);
-        QAction *settingsAction  = new QAction("Einstellungen...", trayMenu);
-        QAction *quitAction      = new QAction("Beenden", trayMenu);
+    trayMenu = new QMenu();
 
-        trayMenu->addAction(showAction);
-        trayMenu->addAction(settingsAction);
-        trayMenu->addSeparator();
-        trayMenu->addAction(quitAction);
+    QAction *showAction     = new QAction("Öffnen", trayMenu);
+    QAction *settingsAction = new QAction("Einstellungen...", trayMenu);
+    QAction *quitAction     = new QAction("Beenden", trayMenu);
 
-        // Kontextmenü dem Tray-Icon zuweisen (für Rechtsklick)
-        trayIcon->setContextMenu(trayMenu);
-        trayIcon->show();
+    trayMenu->addAction(showAction);
+    trayMenu->addAction(settingsAction);
+    trayMenu->addSeparator();
+    trayMenu->addAction(quitAction);
 
-        // Nur Tray-Icon anzeigen, wenn Autostart + "nur Tray"
-        if (startedFromAutostart
-            && autostartManager.startOnlyTray()
-            && window) {
-            window->hide();
-        }
+    // Kontextmenü dem Tray-Icon zuweisen (für Rechtsklick)
+    trayIcon->setContextMenu(trayMenu);
+    trayIcon->show();
 
-        // Menüpunkt "Öffnen"
-        QObject::connect(showAction, &QAction::triggered, &app, [window]() {
-            showOrActivateMainWindow(window);
-        });
-
-        // Klick auf das Tray-Icon
-        QObject::connect(trayIcon, &QSystemTrayIcon::activated,
-                        &app, [window](QSystemTrayIcon::ActivationReason reason) {
-            switch (reason) {
-            case QSystemTrayIcon::Trigger:        // einfacher Linksklick
-            case QSystemTrayIcon::DoubleClick: {  // Doppelklick
-                if (!window)
-                    return;
-
-                if (window->isVisible()) {
-                    // Fenster ist sichtbar → verstecken
-                    window->hide();
-                } else {
-                    // Fenster ist unsichtbar → mit deiner alten Logik öffnen
-                    showOrActivateMainWindow(window);
-                }
-                break;
-            }
-            default:
-                break;
-            }
-        });
-
-
-        // "Beenden"
-        QObject::connect(quitAction, &QAction::triggered,
-                         &app, &QCoreApplication::quit);
+    // Nur Tray-Icon anzeigen, wenn Autostart + "nur Tray"
+    if (startedFromAutostart
+        && autostartManager.startOnlyTray()
+        && window) {
+        window->hide();
     }
+
+    // Anfangstext abhängig davon, ob Fenster sichtbar
+    if (window) {
+        showAction->setText(window->isVisible() ? "Schließen" : "Öffnen");
+
+        // Sichtbarkeitsänderung -> Text automatisch aktualisieren
+        QObject::connect(window, &QWindow::visibleChanged,
+                         &app, [showAction](bool visible) {
+            showAction->setText(visible ? "Schließen" : "Öffnen");
+        });
+    }
+
+    // Menüpunkt "Öffnen/Schließen" -> toggelt Fenster per QML
+    QObject::connect(showAction, &QAction::triggered, &app, [window]() {
+        if (!window)
+            return;
+
+        QMetaObject::invokeMethod(window, "toggleVisibility",
+                                  Qt::QueuedConnection);
+    });
+
+    // Menüpunkt "Einstellungen..."
+    QObject::connect(settingsAction, &QAction::triggered, &app, [window]() {
+        if (!window)
+            return;
+
+        QMetaObject::invokeMethod(window, "openSettings",
+                                  Qt::QueuedConnection);
+    });
+
+    // Klick aufs Tray-Icon (Links/Doppelklick)
+    QObject::connect(trayIcon, &QSystemTrayIcon::activated,
+                     &app, [window](QSystemTrayIcon::ActivationReason reason) {
+        switch (reason) {
+        case QSystemTrayIcon::Trigger:
+        case QSystemTrayIcon::DoubleClick: {
+            if (!window)
+                return;
+
+            if (window->isVisible()) {
+                window->hide();
+            } else {
+                // Popup an Panel-Position
+                showPopupOverBottomPanel(window);
+            }
+            break;
+        }
+        default:
+            break;
+        }
+    });
+
+    // Menüpunkt "Beenden"
+    QObject::connect(quitAction, &QAction::triggered,
+                     &app, &QCoreApplication::quit);
+}
+
 
     return app.exec();
 }

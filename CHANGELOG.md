@@ -78,4 +78,18 @@ UI & Theme-Verbesserungen
   - SystemPalette entfernt
   - Doppeltes Farb-Handling aus QML bereinigt
   - required property in ListView Delegate entfernt
+  
+  
+### [2025-12-10] Tray-Menü verbessert: Öffnen/Schließen-Toggle und Einstellungen gefixt
+
+- Tray-Menü-Eintrag "Öffnen" toggelt jetzt das Hauptfenster über die QML-Funktion
+  toggleVisibility() statt nur stumpf showOrActivateMainWindow() aufzurufen.
+- Text des Tray-Menü-Eintrags wird dynamisch zwischen "Öffnen" und "Schließen"
+  umgeschaltet, abhängig von window->visible (via visibleChanged-Signal).
+- "Einstellungen..." im Tray-Menü ruft wieder korrekt die QML-Funktion
+  openSettings() auf und öffnet das Einstellungsfenster.
+- Verhalten ist jetzt konsistent mit dem Klick auf das Tray-Icon:
+- Fenster sichtbar → Schließen
+- Fenster verborgen → Öffnen
+
 

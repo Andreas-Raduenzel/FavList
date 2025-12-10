@@ -169,8 +169,40 @@ ApplicationWindow {
 
             CheckBox {
                 id: autostartCheck
-                text: "Beim Systemstart automatisch starten"
                 checked: autostartManager.isAutostartEnabled()
+                text: "Beim Systemstart automatisch starten"
+
+                // Kasten links
+                indicator: Rectangle {
+                    implicitWidth: 18
+                    implicitHeight: 18
+                    radius: 3
+                    border.width: 1
+                    border.color: theme.textSecondary
+                    color: theme.window
+
+                    // Positionierung wie im Qt-Beispiel:
+                    x: autostartCheck.leftPadding
+                    y: parent.height / 2 - height / 2
+
+                    Rectangle {
+                        anchors.fill: parent
+                        anchors.margins: 3
+                        radius: 2
+                        visible: autostartCheck.checked
+                        color: theme.itemBorder
+                    }
+                }
+
+                // Text rechts daneben, mit Padding
+                contentItem: Text {
+                    text: autostartCheck.text
+                    color: theme.text
+                    verticalAlignment: Text.AlignVCenter
+                    elide: Text.ElideRight
+
+                    leftPadding: autostartCheck.indicator.width + autostartCheck.spacing + 4
+                }
 
                 onToggled: {
                     autostartManager.setAutostartEnabled(checked)
@@ -180,14 +212,48 @@ ApplicationWindow {
                 }
             }
 
+
+
             CheckBox {
-                text: "Beim Start nur Tray-Icon anzeigen"
+                id: trayOnlyCheck
                 visible: trayAvailable
                 enabled: autostartCheck.checked
                 checked: autostartManager.startOnlyTray()
+                text: "Beim Start nur Tray-Icon anzeigen"
+
+                indicator: Rectangle {
+                    implicitWidth: 18
+                    implicitHeight: 18
+                    radius: 3
+                    border.width: 1
+                    border.color: enabled ? theme.textSecondary : "#808080"
+                    color: theme.window
+
+                    x: trayOnlyCheck.leftPadding
+                    y: parent.height / 2 - height / 2
+
+                    Rectangle {
+                        anchors.fill: parent
+                        anchors.margins: 3
+                        radius: 2
+                        visible: trayOnlyCheck.checked
+                        color: enabled ? theme.itemBorder : "#808080"
+                    }
+                }
+
+                contentItem: Text {
+                    text: trayOnlyCheck.text
+                    color: enabled ? theme.text : theme.textSecondary
+                    verticalAlignment: Text.AlignVCenter
+                    elide: Text.ElideRight
+
+                    leftPadding: trayOnlyCheck.indicator.width + trayOnlyCheck.spacing + 4
+                }
 
                 onToggled: autostartManager.setStartOnlyTray(checked)
             }
+
+
 
             Item {
                 Layout.fillHeight: true
@@ -316,7 +382,28 @@ ApplicationWindow {
                 id: scroll
                 policy: ScrollBar.AlwaysOn
                 visible: listView.count > 0 && listView.contentHeight > listView.height
+
+                // etwas breiter und immer klar erkennbar
+                width: 8
+
+                // der „Knubbel“ (Thumb)
+                contentItem: Rectangle {
+                    implicitWidth: 8
+                    radius: 4
+                    color: scroll.pressed || scroll.active
+                        ? theme.itemBorder        // kräftiger, wenn aktiv / gedrückt
+                        : theme.textSecondary     // sonst dezenter
+                    opacity: scroll.hovered || scroll.pressed || scroll.active ? 1.0 : 0.7
+                }
+
+                // Hintergrund, z.B. ein ganz leichtes „Track“-Highlight
+                background: Rectangle {
+                    radius: 4
+                    color: theme.dark ? "#303030" : "#f0f0f0"
+                    opacity: 0.6
+                }
             }
+
 
             delegate: Item {
                 id: rowItem
