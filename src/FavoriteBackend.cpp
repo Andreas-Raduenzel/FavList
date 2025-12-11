@@ -10,6 +10,8 @@
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonValue>
+#include <QFileIconProvider>
+
 
 FavoriteBackend::FavoriteBackend(QObject *parent)
     : QObject(parent)
@@ -88,45 +90,60 @@ void FavoriteBackend::save()
 
 QString FavoriteBackend::iconPathForFile(const QString &path)
 {
-    QMimeDatabase db;
-    QMimeType type = db.mimeTypeForFile(path);
+    QFileInfo info(path);
+    if (!info.exists())
+        return "";
 
-    // 1️⃣ zuerst den spezifischen Icon-Namen holen, z.B. "image-jpeg"
-    QString iconName = type.iconName();
+    QIcon icon;
 
-    // 2️⃣ Falls es dafür kein Icon im Theme gibt → generischen Namen nehmen, z.B. "image"
-    if (!QIcon::hasThemeIcon(iconName)) {
-        QString generic = type.genericIconName();   // "image", "video", "text", ...
-        if (!generic.isEmpty() && QIcon::hasThemeIcon(generic)) {
-            iconName = generic;
-        } else {
-            // 3️⃣ Fallbacks, falls gar nichts geht
-            if (QIcon::hasThemeIcon("text-plain"))
-                iconName = "text-plain";
-            else if (QIcon::hasThemeIcon("unknown"))
-                iconName = "unknown";
-            else
-                return "";
+    // 1️⃣ Erstens: System-Icon über QFileIconProvider (funktioniert meistens „einfach so“)
+    {
+        QFileIconProvider provider;
+        icon = provider.icon(info);
+    }
+
+    // 2️⃣ Falls das leer ist → alte Theme-/MIME-Logik als Fallback
+    if (icon.isNull()) {
+        QMimeDatabase db;
+        QMimeType type = db.mimeTypeForFile(path);
+
+        QString iconName = type.iconName();
+
+        if (!QIcon::hasThemeIcon(iconName)) {
+            QString generic = type.genericIconName();   // "image", "video", "text", ...
+            if (!generic.isEmpty() && QIcon::hasThemeIcon(generic)) {
+                iconName = generic;
+            } else {
+                if (QIcon::hasThemeIcon("text-plain"))
+                    iconName = "text-plain";
+                else if (QIcon::hasThemeIcon("unknown"))
+                    iconName = "unknown";
+                else
+                    return "";
+            }
         }
+
+        icon = QIcon::fromTheme(iconName);
     }
 
-    QIcon icon = QIcon::fromTheme(iconName);
-    if (!icon.isNull()) {
-        // Optional etwas eindeutigere Dateinamen, damit PNG/JPG nicht alle die gleiche temp-Datei nutzen
-        QString baseName = QFileInfo(path).completeBaseName();
-        if (baseName.isEmpty())
-            baseName = QFileInfo(path).fileName();
+    if (icon.isNull())
+        return "";
 
-        QString tmpDir = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
-        QDir().mkpath(tmpDir); // sicherstellen, dass es den Ordner gibt
+    // 3️⃣ Icon in eine temporäre PNG-Datei schreiben (wie bisher)
+    QString baseName = info.completeBaseName();
+    if (baseName.isEmpty())
+        baseName = info.fileName();
 
-        QString tmpPath = tmpDir + "/favlist_icon_" + baseName + ".png";
-        icon.pixmap(32, 32).save(tmpPath);
-        return tmpPath;
-    }
+    QString tmpDir = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
+    QDir().mkpath(tmpDir);
 
-    return "";
+    QString tmpPath = tmpDir + "/favlist_icon_" + baseName + ".png";
+    if (!icon.pixmap(32, 32).save(tmpPath))
+        return "";
+
+    return tmpPath;
 }
+
 
 
 void FavoriteBackend::moveFavorite(int from, int to)

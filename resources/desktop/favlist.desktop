@@ -1,9 +1,12 @@
 [Desktop Entry]
 Type=Application
+Version=1.0
 Name=FavList
-Comment=Favorite launcher
-Exec=favoriten
+Name[de_DE]=FavList
+Comment=Deine persönliche Favoritenliste
+Comment[de_DE]=Deine persönliche Favoritenliste
+Exec=favlist
 Icon=favlist
-Terminal=false
 Categories=Utility;
-StartupNotify=true
+Terminal=false
+StartupNotify=false

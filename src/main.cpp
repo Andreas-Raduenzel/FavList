@@ -123,13 +123,19 @@ int main(int argc, char *argv[])
         return 0;
     }
 
-    QCoreApplication::setOrganizationName("crumbTechFavApp");
-    QCoreApplication::setApplicationName("FavList");
-    QGuiApplication::setDesktopFileName("favlist");
+    QCoreApplication::setOrganizationName("crumbtech");     // Hersteller
+    QCoreApplication::setOrganizationDomain("crumbtech.de"); // optional, aber sauber
+    QCoreApplication::setApplicationName("favlist");         // Name für Einstellungen + AppData
+    QGuiApplication::setDesktopFileName("favlist");          // muss zum .desktop passen
 
-    QIcon appIcon(":/resources/icons/appicon.png");
+
+    // 🔹 App-Icon: zuerst aus System-Theme ("favlist"), Fallback aus Ressourcen (SVG)
+    QIcon appIcon = QIcon::fromTheme(
+        QStringLiteral("favlist"),
+        QIcon(QStringLiteral(":/icons/appicon.svg"))
+    );
     app.setWindowIcon(appIcon);
-
+    
     // Icon-Theme-Verhalten
     QString currentTheme = QIcon::themeName();
     if (currentTheme.isEmpty()) {
