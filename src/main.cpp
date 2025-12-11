@@ -139,7 +139,7 @@ int main(int argc, char *argv[])
         qDebug() << "System-Icon-Theme wird verwendet:" << currentTheme;
     }
 
-    // Prüfen, ob System-Tray verfügbar ist
+    // Prüfen, ob System-Tray verfügbar ist (Qt-Meinung)
     bool trayAvailable = QSystemTrayIcon::isSystemTrayAvailable();
     /*trayAvailable = false;   // TEST: so tun, als gäbe es keinen Tray */
 
@@ -151,15 +151,16 @@ int main(int argc, char *argv[])
             desktopEnv.contains("GNOME", Qt::CaseInsensitive) ||
             desktopEnv.contains("ubuntu", Qt::CaseInsensitive);
 
-    if (!trayAvailable) {
-        qWarning() << "System Tray nicht verfügbar!";
+    // Workaround: unter GNOME kann isSystemTrayAvailable()
+    // beim Autostart zu früh "false" liefern.
+    // Wenn GNOME erkannt wird, gehen wir trotzdem von einem Tray/AppIndicator aus.
+    if (!trayAvailable && isGnomeLike) {
+        qDebug() << "GNOME/Ubuntu erkannt – Tray-Status wird auf 'verfügbar' überschrieben (Autostart-Workaround)";
+        trayAvailable = true;
     }
 
-    // Verhalten beim letzten Fenster
-    if (trayAvailable) {
-        app.setQuitOnLastWindowClosed(false);
-    } else {
-        app.setQuitOnLastWindowClosed(true);
+    if (!trayAvailable) {
+        qWarning() << "System Tray nicht verfügbar!";
     }
 
     QQmlApplicationEngine engine;
