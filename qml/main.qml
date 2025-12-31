@@ -10,17 +10,21 @@ ApplicationWindow {
     height: 400
     title: "FavList"
 
-    // Fensterverhalten je nach Umgebung:
-    // - Ohne Tray  ODER unter GNOME/Ubuntu: normales Fenster
-    // - Mit Tray und nicht GNOME: kleines Tool-Popup über der Leiste
-    flags: (!trayAvailable || isGnomeLike)
-           ? (Qt.Window
-              | Qt.WindowMinimizeButtonHint
-              | Qt.WindowMaximizeButtonHint
-              | Qt.WindowCloseButtonHint)
-           : (Qt.Tool
-              | Qt.WindowCloseButtonHint
-              | Qt.WindowStaysOnTopHint)
+    // Fensterverhalten abhängig von der Tray-Verfügbarkeit:
+    // - Kein Tray verfügbar (z. B. GNOME ohne AppIndicator):
+    //   → Normales Anwendungsfenster mit Min/Max/Close
+    // - Tray verfügbar (z. B. KDE, Cinnamon, Ubuntu mit AppIndicator):
+    //   → Kleines Tool-/Popup-Fenster, das über der Leiste erscheint
+    flags: (!trayAvailable)
+    ? (Qt.Window
+        | Qt.WindowMinimizeButtonHint
+        | Qt.WindowMaximizeButtonHint
+        | Qt.WindowCloseButtonHint)
+    : (Qt.Tool
+        | Qt.WindowCloseButtonHint
+        | Qt.WindowStaysOnTopHint)
+
+
 
     // 🔹 Standardgröße merken
     property int defaultWidth: 250
@@ -89,14 +93,18 @@ ApplicationWindow {
         settingsWindow.requestActivate();
     }
 
-    onClosing: function(close) {
-        if (trayAvailable) {
-            close.accepted = false
-            hide()
-        } else {
-            close.accepted = true
-        }
+   onClosing: function(close) {
+    // Nur verstecken, wenn Tray vorhanden UND der Nutzer "nur Tray" aktiviert hat.
+    if (trayAvailable && autostartManager.startOnlyTray()) {
+        close.accepted = false
+        hide()
+    } else {
+        close.accepted = true
+        Qt.quit()
     }
+}
+
+
 
     Shortcut {
         sequence: StandardKey.Preferences
@@ -215,11 +223,12 @@ ApplicationWindow {
 
 
             CheckBox {
-                id: trayOnlyCheck
-                visible: trayAvailable
-                enabled: autostartCheck.checked
-                checked: autostartManager.startOnlyTray()
-                text: "Beim Start nur Tray-Icon anzeigen"
+            id: trayOnlyCheck
+            visible: trayAvailable
+            enabled: autostartCheck.checked
+            checked: autostartManager.startOnlyTray()
+            text: "Beim Start nur Tray-Icon anzeigen"
+
 
                 indicator: Rectangle {
                     implicitWidth: 18

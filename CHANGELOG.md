@@ -93,3 +93,19 @@ UI & Theme-Verbesserungen
 - Fenster verborgen → Öffnen
 
 
+## [2025-12-31]Änderungen / Fixes (GNOME/Debian 12, Autostart/Tray)
+
+- Fehlerbehebung: Die Anwendung ließ sich unter GNOME (Debian 12) nach dem Schließen teilweise nicht erneut starten.
+  Ursache war, dass die App in bestimmten Fällen nicht wirklich beendet wurde, sondern im Hintergrund weiterlief.
+  Durch die Single-Instance-Sperre (QSharedMemory) wurde ein erneuter Start dann blockiert („App läuft bereits“).
+
+- QML-Fix: Syntaxfehler im Einstellungsdialog (Tray-Option) behoben.
+  In der Checkbox „Beim Start nur Tray-Icon anzeigen“ war ein unvollständiger ternärer Ausdruck (`?:`) enthalten,
+  was dazu führte, dass `main.qml` nicht geladen werden konnte (QQmlApplicationEngine failed to load component).
+
+- UX/Logik verbessert: Die Tray-Option wird nur noch angezeigt, wenn tatsächlich ein System-Tray verfügbar ist.
+  Damit gibt es unter GNOME ohne Tray/AppIndicator keine irreführende oder nicht nutzbare „Nur Tray“-Einstellung.
+
+- Stabilität beim Autostart verbessert:
+  Verhalten bei Umgebungen ohne Tray ist nun konsistent (kein unsichtbarer Hintergrundprozess),
+  dadurch keine „hängt im Hintergrund“-Situation mehr und App kann jederzeit erneut gestartet werden.

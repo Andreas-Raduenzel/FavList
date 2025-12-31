@@ -14,10 +14,17 @@
 #include <QMenu>
 #include <QAction>
 
+#include <QTimer>
+
+
 #include "FavoriteBackend.h"
 #include "autostartmanager.h"
 
 #include <QFile>
+
+#include <QPointer>
+
+
 
 // Hilfsfunktion, um das Fenster automatisch an Leiste zu platzieren
 static void showPopupOverBottomPanel(QWindow *window)
@@ -109,6 +116,9 @@ int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
 
+    app.setQuitOnLastWindowClosed(false);
+
+
     // Prüfen, ob wir mit --autostart gestartet wurden
     bool startedFromAutostart = false;
     QStringList args = app.arguments();
@@ -142,22 +152,7 @@ int main(int argc, char *argv[])
     // Prüfen, ob System-Tray verfügbar ist (Qt-Meinung)
     bool trayAvailable = QSystemTrayIcon::isSystemTrayAvailable();
     /*trayAvailable = false;   // TEST: so tun, als gäbe es keinen Tray */
-
-    // Prüfen, ob wir unter GNOME/Ubuntu laufen
-    QString desktopEnv = QString::fromLocal8Bit(qgetenv("XDG_CURRENT_DESKTOP"));
-    qDebug() << "XDG_CURRENT_DESKTOP =" << desktopEnv;
-
-    bool isGnomeLike =
-            desktopEnv.contains("GNOME", Qt::CaseInsensitive) ||
-            desktopEnv.contains("ubuntu", Qt::CaseInsensitive);
-
-    // Workaround: unter GNOME kann isSystemTrayAvailable()
-    // beim Autostart zu früh "false" liefern.
-    // Wenn GNOME erkannt wird, gehen wir trotzdem von einem Tray/AppIndicator aus.
-    if (!trayAvailable && isGnomeLike) {
-        qDebug() << "GNOME/Ubuntu erkannt – Tray-Status wird auf 'verfügbar' überschrieben (Autostart-Workaround)";
-        trayAvailable = true;
-    }
+ 
 
     if (!trayAvailable) {
         qWarning() << "System Tray nicht verfügbar!";
@@ -174,7 +169,6 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("backend", &backend);
     engine.rootContext()->setContextProperty("trayAvailable", trayAvailable);
     engine.rootContext()->setContextProperty("startedFromAutostart", startedFromAutostart);
-    engine.rootContext()->setContextProperty("isGnomeLike", isGnomeLike);
 
     QString qmlPath = QDir::cleanPath(
         QCoreApplication::applicationDirPath() + "/../qml/main.qml"
@@ -191,95 +185,103 @@ int main(int argc, char *argv[])
 
     QObject *topLevel = engine.rootObjects().first();
     QWindow *window = qobject_cast<QWindow *>(topLevel);
-    if (window) {
-        window->setIcon(appIcon);
+    QPointer<QWindow> winPtr(window);
 
-        // Startverhalten
-        // - kein Tray -> Fenster zeigen
-        // - Autostart + "nur Tray" -> NICHT zeigen
-        // - sonst -> Fenster zeigen
-        if (!trayAvailable
-            || !startedFromAutostart
-            || !autostartManager.startOnlyTray()) {
-            window->show();
+    if (winPtr) {
+    winPtr->setIcon(appIcon);
+
+    if (!trayAvailable) {
+    winPtr->show();
+    } else {
+        if (startedFromAutostart && autostartManager.startOnlyTray()) {
+            winPtr->hide(); // Fenster erstmal verstecken – Tray kommt ggf. gleich/gleich später
+        } else {
+            showPopupOverBottomPanel(winPtr);
         }
     }
 
-    // Tray-Icon & Menü
+    } // <- WICHTIG: schließt if(winPtr)
+
+// Tray-Icon & Menü (Lazy / Retry für Autostart)
 QSystemTrayIcon *trayIcon = nullptr;
 QMenu *trayMenu = nullptr;
 
-if (trayAvailable) {
+// Aktionen außerhalb anlegen, damit wir sie nicht mehrfach erzeugen
+QAction *showAction = nullptr;
+QAction *settingsAction = nullptr;
+QAction *quitAction = nullptr;
 
+auto initTrayOnce = [&]() {
+    if (trayIcon) {
+        return; // schon erstellt
+    }
+
+    // Tray/Indicator muss JETZT wirklich verfügbar sein
+    if (!QSystemTrayIcon::isSystemTrayAvailable()) {
+        qDebug() << "Tray noch nicht verfügbar...";
+        return;
+    }
+
+    // Tray ist da -> jetzt erstellen wir alles
     trayIcon = new QSystemTrayIcon(&app);
     trayIcon->setIcon(appIcon);
     trayIcon->setToolTip("FavList");
 
     trayMenu = new QMenu();
-
-    QAction *showAction     = new QAction("Öffnen", trayMenu);
-    QAction *settingsAction = new QAction("Einstellungen...", trayMenu);
-    QAction *quitAction     = new QAction("Beenden", trayMenu);
+    showAction     = new QAction("Öffnen", trayMenu);
+    settingsAction = new QAction("Einstellungen...", trayMenu);
+    quitAction     = new QAction("Beenden", trayMenu);
 
     trayMenu->addAction(showAction);
     trayMenu->addAction(settingsAction);
     trayMenu->addSeparator();
     trayMenu->addAction(quitAction);
 
-    // Kontextmenü dem Tray-Icon zuweisen (für Rechtsklick)
     trayIcon->setContextMenu(trayMenu);
     trayIcon->show();
 
-    // Nur Tray-Icon anzeigen, wenn Autostart + "nur Tray"
-    if (startedFromAutostart
-        && autostartManager.startOnlyTray()
-        && window) {
-        window->hide();
-    }
+    // Text abhängig von Fenster-Sichtbarkeit
+    if (winPtr) {
+        showAction->setText(winPtr->isVisible() ? "Schließen" : "Öffnen");
 
-    // Anfangstext abhängig davon, ob Fenster sichtbar
-    if (window) {
-        showAction->setText(window->isVisible() ? "Schließen" : "Öffnen");
+        QObject::connect(winPtr, &QWindow::visibleChanged,
+                 &app, [showAction](bool visible) {
+    showAction->setText(visible ? "Schließen" : "Öffnen");
+    });
 
-        // Sichtbarkeitsänderung -> Text automatisch aktualisieren
-        QObject::connect(window, &QWindow::visibleChanged,
-                         &app, [showAction](bool visible) {
-            showAction->setText(visible ? "Schließen" : "Öffnen");
-        });
     }
 
     // Menüpunkt "Öffnen/Schließen" -> toggelt Fenster per QML
-    QObject::connect(showAction, &QAction::triggered, &app, [window]() {
-        if (!window)
+    QObject::connect(showAction, &QAction::triggered, &app, [winPtr]() {
+        if (!winPtr)
             return;
 
-        QMetaObject::invokeMethod(window, "toggleVisibility",
+        QMetaObject::invokeMethod(winPtr, "toggleVisibility",
                                   Qt::QueuedConnection);
     });
 
     // Menüpunkt "Einstellungen..."
-    QObject::connect(settingsAction, &QAction::triggered, &app, [window]() {
-        if (!window)
+    QObject::connect(settingsAction, &QAction::triggered, &app, [winPtr]() {
+        if (!winPtr)
             return;
 
-        QMetaObject::invokeMethod(window, "openSettings",
+        QMetaObject::invokeMethod(winPtr, "openSettings",
                                   Qt::QueuedConnection);
     });
 
     // Klick aufs Tray-Icon (Links/Doppelklick)
     QObject::connect(trayIcon, &QSystemTrayIcon::activated,
-                     &app, [window](QSystemTrayIcon::ActivationReason reason) {
+                     &app, [winPtr](QSystemTrayIcon::ActivationReason reason) {
         switch (reason) {
         case QSystemTrayIcon::Trigger:
         case QSystemTrayIcon::DoubleClick: {
-            if (!window)
+            if (!winPtr)
                 return;
 
-            if (window->isVisible()) {
-                window->hide();
+            if (winPtr->isVisible()) {
+                winPtr->hide();
             } else {
-                // Popup an Panel-Position
-                showPopupOverBottomPanel(window);
+                showPopupOverBottomPanel(winPtr);
             }
             break;
         }
@@ -291,7 +293,38 @@ if (trayAvailable) {
     // Menüpunkt "Beenden"
     QObject::connect(quitAction, &QAction::triggered,
                      &app, &QCoreApplication::quit);
-}
+
+    qDebug() << "Tray erfolgreich erstellt.";
+
+    // ✅ Wenn Autostart + "nur Tray", dann Fenster sicher verstecken,
+    // aber erst JETZT (wo Tray wirklich existiert).
+    if (startedFromAutostart && autostartManager.startOnlyTray() && winPtr) {
+        winPtr->hide();
+    }
+};
+
+// Sofort versuchen
+initTrayOnce();
+
+// Retry: Autostart-GNOME/Ubuntu braucht oft ein bisschen, bis der Indicator da ist
+QTimer::singleShot(1000, &app, [=]() { initTrayOnce(); });
+QTimer::singleShot(2000, &app, [=]() { initTrayOnce(); });
+QTimer::singleShot(4000, &app, [=]() { initTrayOnce(); });
+QTimer::singleShot(8000, &app, [=]() { initTrayOnce(); });
+
+
+// Optional: Falls nach 8 Sekunden immer noch kein Tray da ist und die App im Autostart
+// "nur Tray" sollte, zeigen wir das Fenster, damit sie nicht "unsichtbar" bleibt.
+QTimer::singleShot(9000, &app, [&]() {
+    if (startedFromAutostart && autostartManager.startOnlyTray()) {
+        if (!trayIcon && winPtr) {
+            qWarning() << "Kein Tray nach 9s – zeige Fenster, damit App sichtbar ist.";
+            winPtr->show();
+        }
+    }
+});
+
+
 
 
     return app.exec();
