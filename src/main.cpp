@@ -175,7 +175,7 @@ int main(int argc, char *argv[])
     );
 
     if (!QFile::exists(qmlPath)) {
-        qmlPath = "/usr/share/favoriten/qml/main.qml";
+        qmlPath = "/usr/share/favlist/qml/main.qml";
     }
 
     engine.load(QUrl::fromLocalFile(qmlPath));

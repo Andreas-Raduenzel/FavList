@@ -2,7 +2,7 @@
 Type=Application
 Name=FavList
 Comment=Favorite launcher
-Exec=favoriten
+Exec=favlist
 Icon=favlist
 Terminal=false
 Categories=Utility;

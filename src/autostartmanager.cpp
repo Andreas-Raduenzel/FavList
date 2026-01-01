@@ -17,6 +17,7 @@ QString AutostartManager::autostartFilePath() const
     // ~/.config
     const QString configDir =
             QStandardPaths::writableLocation(QStandardPaths::ConfigLocation);
+
     // ~/.config/autostart
     const QString autostartDir = configDir + "/autostart";
 
@@ -25,8 +26,8 @@ QString AutostartManager::autostartFilePath() const
         dir.mkpath(autostartDir);
     }
 
-    // Name der Autostart-Datei
-    return autostartDir + "/favorite-v30.desktop";
+    // Einheitlicher Autostart-Dateiname
+    return autostartDir + "/favlist.desktop";
 }
 
 bool AutostartManager::isAutostartEnabled() const
@@ -38,6 +39,12 @@ void AutostartManager::setAutostartEnabled(bool enabled)
 {
     const QString filePath = autostartFilePath();
 
+    // 🧹 Altlast aus früheren Versionen entfernen
+    QFile::remove(
+        QStandardPaths::writableLocation(QStandardPaths::ConfigLocation)
+        + "/autostart/favorite-v30.desktop"
+    );
+
     if (enabled) {
         QFile file(filePath);
         if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
@@ -45,23 +52,22 @@ void AutostartManager::setAutostartEnabled(bool enabled)
         }
 
         const QString execPath = QCoreApplication::applicationFilePath();
-        // Zur Sicherheit in Anführungszeichen, falls Leerzeichen im Pfad sind
         const QString quotedExec = "\"" + execPath + "\"";
 
         QTextStream out(&file);
         out << "[Desktop Entry]\n";
         out << "Type=Application\n";
-        out << "Name=Favorite v30\n";
+        out << "Name=FavList\n";
         out << "Exec=" << quotedExec << " --autostart\n";
-        out << "Icon=favorite\n";
+        out << "Icon=favlist\n";
         out << "X-GNOME-Autostart-enabled=true\n";
         out << "X-KDE-autostart-after=panel\n";
+
         file.close();
     } else {
         QFile::remove(filePath);
     }
 }
-
 
 bool AutostartManager::startOnlyTray() const
 {
@@ -74,5 +80,3 @@ void AutostartManager::setStartOnlyTray(bool enabled)
     QSettings settings;
     settings.setValue("startOnlyTray", enabled);
 }
-
-
