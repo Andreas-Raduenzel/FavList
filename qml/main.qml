@@ -44,8 +44,6 @@ ApplicationWindow {
         }
     }
     
-
-
     // Dark-/Light-Theme-Erkennung vom System
     property bool darkTheme: Qt.styleHints.colorScheme === Qt.Dark
 
@@ -100,7 +98,7 @@ ApplicationWindow {
         hide()
     } else {
         close.accepted = true
-        Qt.quit()
+        //Qt.quit()
     }
 }
 
