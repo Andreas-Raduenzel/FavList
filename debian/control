@@ -1,0 +1,29 @@
+Source: favlist
+Section: utils
+Priority: optional
+Maintainer: Andreas Radünzel <info@crumbtech.de>
+Homepage: https://github.com/Andreas-Raduenzel/FavList
+Build-Depends:
+ debhelper-compat (= 13),
+ cmake,
+ pkgconf,
+ qt6-base-dev,
+ qt6-declarative-dev,
+ qt6-tools-dev-tools
+Standards-Version: 4.6.2
+Rules-Requires-Root: no
+
+Package: favlist
+Architecture: any
+Depends:
+ ${shlibs:Depends},
+ ${misc:Depends},
+ qml6-module-qtquick,
+ qml6-module-qtquick-controls,
+ qml6-module-qtquick-layouts,
+ qml6-module-qtqml-models,
+ qml6-module-qtqml-workerscript,
+ qml6-module-qtquick-window,
+ qml6-module-qtquick-templates
+Description: Favorites launcher/list (Qt6)
+ Small Qt6/QML app to manage and open favorite files and folders.

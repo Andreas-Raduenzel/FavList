@@ -1,0 +1,12 @@
+favlist (0.1.2-1~noble1) noble; urgency=medium
+
+  * Update main.cpp
+  * Rebuild for Ubuntu 24.04 (noble).
+
+ -- Andreas Radünzel <info@crumbtech.de>  Sun, 04 Jan 2026 23:43:59 +0100
+
+favlist (0.1.1-1) unstable; urgency=medium
+
+  * Start next development cycle.
+
+ -- Andreas Radünzel <info@crumbtech.de>  Sun, 04 Jan 2026 18:10:00 +0100
