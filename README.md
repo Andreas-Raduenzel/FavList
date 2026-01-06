@@ -35,3 +35,13 @@ Prebuilt Debian packages are available via **GitHub Releases** for:
 - Debian 12 (Bookworm)
 - Debian 13 (Trixie)
 - Ubuntu / Linux Mint
+
+---
+
+## Build
+
+```bash
+mkdir build
+cd build
+cmake ..
+make
