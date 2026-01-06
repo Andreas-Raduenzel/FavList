@@ -1,5 +1,6 @@
 # FavList
-<img width="382" height="512" alt="FavList" src="https://github.com/user-attachments/assets/5efaeca6-ce77-41e3-9580-dcf843e616d4" />
+<img width="780" height="496" alt="FavList_2" src="https://github.com/user-attachments/assets/36cdb6b8-b188-47b0-b673-e00dc27c0803" />
+
 
 
 **FavList** is a lightweight favorites launcher for **KDE Plasma 6**.  
