@@ -2,39 +2,36 @@
 <img width="780" height="496" alt="FavList_2" src="https://github.com/user-attachments/assets/36cdb6b8-b188-47b0-b673-e00dc27c0803" />
 
 
+**FavList** is a lightweight favorites launcher for Linux desktops.  
+It provides quick access to files and folders via a small tray-style menu.
 
-**FavList** is a lightweight favorites launcher for **KDE Plasma 6**.  
-It provides quick access to files and folders directly from the system tray.
-
-The focus of FavList is clarity, simplicity, and native KDE integration — without external scripts or background services.
+FavList is built with **Qt 6** and **KDE Frameworks**, but it is **distribution-independent**
+and works on Debian-based systems such as **Debian**, **Ubuntu**, and **Linux Mint**.
 
 ---
 
 ## Features
 
-- System tray favorites launcher
-- Supports files and folders
+- Favorites launcher for files and folders
+- Tray-style menu
 - Drag & drop reordering
-- Native Qt 6 / KDE Plasma 6 application
+- Qt 6 / KDE Frameworks based
 - Icons included in the application package
 - No Python, no Bash scripts, no background daemons
 
 ---
 
-## Requirements
+## Desktop Environment
 
-- KDE Plasma 6
-- Qt 6
-- CMake
-- Extra CMake Modules (ECM)
-- C++17 compatible compiler
+FavList integrates best with **KDE Plasma**, but it can also be used on other
+desktop environments that support system tray applications.
 
 ---
 
-## Build
+## Packages
 
-```bash
-mkdir build
-cd build
-cmake ..
-make
+Prebuilt Debian packages are available via **GitHub Releases** for:
+
+- Debian 12 (Bookworm)
+- Debian 13 (Trixie)
+- Ubuntu / Linux Mint
