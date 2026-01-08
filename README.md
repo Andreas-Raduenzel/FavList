@@ -34,7 +34,7 @@ Prebuilt Debian packages are available via **GitHub Releases** for:
 
 - Debian 12 (Bookworm)
 - Debian 13 (Trixie)
-- Ubuntu / Linux Mint
+- Ubuntu and Ubuntu derivatives (e.g. Linux Mint)
 
 ---
 
