@@ -16,7 +16,7 @@ and works on Debian-based systems such as **Debian**, **Ubuntu**, and **Linux Mi
 - Tray-style menu
 - Drag & drop reordering
 - Qt 6 / KDE Frameworks based
-- Icons included in the application package
+- File and folder icons are provided by the currently active system icon theme. Application-specific UI icons are bundled with the app.
 - No Python, no Bash scripts, no background daemons
 
 ---
