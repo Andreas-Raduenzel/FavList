@@ -1,0 +1,47 @@
+Description: <short summary of the patch>
+ TODO: Put a short summary on the line above and replace this paragraph
+ with a longer explanation of this change. Complete the meta-information
+ with other relevant fields (see below for details). To make it easier, the
+ information below has been extracted from the changelog. Adjust it or drop
+ it.
+ .
+ favlist (0.1.2-1~trixie4) trixie; urgency=medium
+ .
+   * Miscellaneous fixes.
+Author: Andreas Radünzel <info@crumbtech.de>
+
+---
+The information above should follow the Patch Tagging Guidelines, please
+checkout https://dep.debian.net/deps/dep3/ to learn about the format. Here
+are templates for supplementary fields that you might want to add:
+
+Origin: (upstream|backport|vendor|other), (<patch-url>|commit:<commit-id>)
+Bug: <upstream-bugtracker-url>
+Bug-Debian: https://bugs.debian.org/<bugnumber>
+Bug-Ubuntu: https://launchpad.net/bugs/<bugnumber>
+Forwarded: (no|not-needed|<patch-forwarded-url>)
+Applied-Upstream: <version>, (<commit-url>|commit:<commid-id>)
+Reviewed-By: <name and email of someone who approved/reviewed the patch>
+Last-Update: 2026-01-08
+
+--- favlist-0.1.2.orig/resources.qrc
++++ favlist-0.1.2/resources.qrc
+@@ -1,6 +1,6 @@
+ <RCC>
+   <qresource prefix="/resources">
+-    <file alias="icons/appicon.svg">resources/icons/appicon.svg</file>
++    <file alias="icons/appicon.png">resources/icons/appicon.png</file>
+   </qresource>
+ </RCC>
+ 
+--- favlist-0.1.2.orig/src/main.cpp
++++ favlist-0.1.2/src/main.cpp
+@@ -137,7 +137,7 @@ int main(int argc, char *argv[])
+     QCoreApplication::setApplicationName("FavList");
+     QGuiApplication::setDesktopFileName("favlist");
+ 
+-    QIcon appIcon(":/resources/icons/appicon.svg");
++    QIcon appIcon(":/resources/icons/appicon.png");
+     app.setWindowIcon(appIcon);
+ 
+     // Icon-Theme-Verhalten

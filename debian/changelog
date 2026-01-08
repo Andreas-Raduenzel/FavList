@@ -1,3 +1,87 @@
+favlist (0.1.2-1~trixie4) trixie; urgency=medium
+
+  * Miscellaneous fixes.
+
+ -- Andreas Radünzel <info@crumbtech.de>  Thu, 08 Jan 2026 21:26:40 +0100
+
+favlist (0.1.2-1~trixie4) trixie; urgency=medium
+
+  * Miscellaneous fixes.
+
+ -- Andreas Radünzel <info@crumbtech.de>  Thu, 08 Jan 2026 21:25:06 +0100
+
+favlist (0.1.2-1~jammy4) jammy; urgency=medium
+
+  * Miscellaneous fixes.
+
+ -- Andreas Radünzel <info@crumbtech.de>  Thu, 08 Jan 2026 21:20:08 +0100
+
+favlist (0.1.2-1~jammy4) jammy; urgency=medium
+
+  * Miscellaneous fixes.
+
+ -- Andreas Radünzel <info@crumbtech.de>  Thu, 08 Jan 2026 21:17:51 +0100
+
+favlist (0.1.2-1~jammy4) jammy; urgency=medium
+
+  * Miscellaneous fixes.
+
+ -- Andreas Radünzel <info@crumbtech.de>  Thu, 08 Jan 2026 20:57:37 +0100
+
+favlist (0.1.2-1~bookworm4) bookworm; urgency=medium
+
+  * Miscellaneous fixes.
+
+ -- Andreas Radünzel <info@crumbtech.de>  Thu, 08 Jan 2026 20:44:33 +0100
+
+favlist (0.1.2-1~bookworm4) bookworm; urgency=medium
+
+  * Miscellaneous fixes.
+
+ -- Andreas Radünzel <info@crumbtech.de>  Thu, 08 Jan 2026 18:17:23 +0100
+
+favlist (0.1.2-1~noble4) noble; urgency=medium
+
+  * Miscellaneous fixes.
+
+ -- Andreas Radünzel <info@crumbtech.de>  Thu, 08 Jan 2026 17:32:46 +0100
+
+favlist (0.1.2-1~trixie4) trixie; urgency=medium
+
+  * Miscellaneous fixes.
+
+ -- Andreas Radünzel <info@crumbtech.de>  Thu, 08 Jan 2026 17:26:04 +0100
+
+favlist (0.1.2-1~bookworm4) bookworm; urgency=medium
+
+  * Miscellaneous fixes.
+
+ -- Andreas Radünzel <info@crumbtech.de>  Thu, 08 Jan 2026 17:14:39 +0100
+
+favlist (0.1.2-1~bookworm4) bookworm; urgency=medium
+
+  * Miscellaneous fixes.
+
+ -- Andreas Radünzel <info@crumbtech.de>  Thu, 08 Jan 2026 17:13:23 +0100
+
+favlist (0.1.2-1~noble4) noble; urgency=medium
+
+  * Miscellaneous fixes.
+
+ -- Andreas Radünzel <info@crumbtech.de>  Thu, 08 Jan 2026 17:13:02 +0100
+
+favlist (0.1.2-1~bookworm4) bookworm; urgency=medium
+
+  * Miscellaneous fixes.
+
+ -- Andreas Radünzel <info@crumbtech.de>  Thu, 08 Jan 2026 17:11:37 +0100
+
+favlist (0.1.2-1~trixie4) trixie; urgency=medium
+
+  * Miscellaneous fixes.
+
+ -- Andreas Radünzel <info@crumbtech.de>  Thu, 08 Jan 2026 17:04:45 +0100
+
 favlist (0.1.2-1~noble1) noble; urgency=medium
 
   * Update main.cpp

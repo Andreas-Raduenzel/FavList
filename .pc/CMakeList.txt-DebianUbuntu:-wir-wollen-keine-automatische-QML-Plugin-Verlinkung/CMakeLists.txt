@@ -48,7 +48,7 @@ install(FILES resources/desktop/favlist.desktop
   DESTINATION ${CMAKE_INSTALL_DATADIR}/applications
 )
 
-install(FILES resources/icons/appicon.png
+install(FILES resources/icons/appicon.svg
   DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps
   RENAME favlist.svg
 )

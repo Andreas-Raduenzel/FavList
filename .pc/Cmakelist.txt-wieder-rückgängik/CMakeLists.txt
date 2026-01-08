@@ -23,6 +23,12 @@ qt_add_executable(favlist
   ${APP_RESOURCES}
 )
 
+# Debian/Ubuntu: wir wollen keine automatische QML-Plugin-Verlinkung
+set_target_properties(favlist PROPERTIES
+  QT_IMPORT_QML_PLUGINS OFF
+  QT_IMPORT_PLUGINS OFF
+)
+
 target_include_directories(favlist PRIVATE src)
 
 target_link_libraries(favlist PRIVATE
