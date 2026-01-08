@@ -137,7 +137,7 @@ int main(int argc, char *argv[])
     QCoreApplication::setApplicationName("FavList");
     QGuiApplication::setDesktopFileName("favlist");
 
-    QIcon appIcon(":/resources/icons/appicon.svg");
+    QIcon appIcon(":/resources/icons/appicon.png");
     app.setWindowIcon(appIcon);
 
     // Icon-Theme-Verhalten
